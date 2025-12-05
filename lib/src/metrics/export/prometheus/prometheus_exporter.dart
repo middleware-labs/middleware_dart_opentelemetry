@@ -1,5 +1,4 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:async';
 
@@ -15,7 +14,7 @@ import '../../metric_exporter.dart';
 /// This could be used on Dart server but not Flutter clients since
 /// Prometheus is a pull model and expects stable http servers and
 /// a Flutter client typically can't provide that.
-/// Dartastic.io offers Prometheus for OTel by forwarding the OTLP data
+/// Middleware.io offers Prometheus for OTel by forwarding the OTLP data
 /// to use Prometheus.  To forward OTLP to your own Prometheus backend you would
 /// configure an OTel collector similar to the following:
 /// receivers:

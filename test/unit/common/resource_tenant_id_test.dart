@@ -2,16 +2,15 @@
 library;
 
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:dartastic_opentelemetry/src/otel.dart';
-import 'package:dartastic_opentelemetry/src/resource/resource.dart';
-import 'package:dartastic_opentelemetry/src/resource/resource_detector.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/batch_span_processor.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
+import 'package:middleware_dart_opentelemetry/src/resource/resource.dart';
+import 'package:middleware_dart_opentelemetry/src/resource/resource_detector.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/batch_span_processor.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
 import 'package:test/test.dart';
 
 import '../../testing_utils/real_collector.dart';

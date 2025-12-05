@@ -1,11 +1,10 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 // Integration tests for OTEL_RESOURCE_ATTRIBUTES environment variable
 // Run with actual environment variables or --dart-define flags
 // via tool/test_all_env_vars.sh
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 void main() {

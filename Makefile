@@ -1,4 +1,4 @@
-# Makefile for Dartastic OpenTelemetry SDK
+# Makefile for Middleware Dart OpenTelemetry SDK
 
 .PHONY: clean test test-safe coverage analyze format
 

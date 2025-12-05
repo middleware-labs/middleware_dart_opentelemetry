@@ -1,11 +1,10 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:async';
 
 import 'package:grpc/grpc.dart';
 
-import '../../../../dartastic_opentelemetry.dart';
+import '../../../../middleware_dart_opentelemetry.dart';
 import '../../../../proto/collector/metrics/v1/metrics_service.pbgrpc.dart';
 import '../../../../proto/common/v1/common.pb.dart' as common_proto;
 import '../../../../proto/metrics/v1/metrics.pb.dart' as proto;
@@ -184,7 +183,7 @@ class OtlpGrpcMetricExporter implements MetricExporter {
 
     // Add instrumentation scope (hardcoded for now)
     final scope = common_proto.InstrumentationScope();
-    scope.name = '@dart/dartastic_opentelemetry';
+    scope.name = '@dart/middleware_opentelemetry';
     scope.version = '1.0.0';
     scopeMetrics.scope = scope;
 

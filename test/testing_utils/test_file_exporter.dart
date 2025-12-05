@@ -1,9 +1,8 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 /// A simple file-based SpanExporter for debugging purposes.
 /// This exporter writes spans directly to a file in JSON format.

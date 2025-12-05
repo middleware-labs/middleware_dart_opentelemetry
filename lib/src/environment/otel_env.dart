@@ -1,5 +1,4 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'env_constants.dart';
@@ -83,7 +82,7 @@ class OTelEnv {
   ///
   /// Returns a map containing the OTLP configuration read from environment variables.
   /// Signal-specific variables take precedence over general ones.
-  static Map<String, dynamic> getOtlpConfig({String signal = 'traces'}) {
+  static Map<String, dynamic> getOtlpConfig({String signal = 'traces', String newHeaders = '', protocol = 'http'}) {
     final config = <String, dynamic>{};
 
     // Get endpoint (signal-specific takes precedence)
@@ -111,15 +110,15 @@ class OTelEnv {
     switch (signal) {
       case 'traces':
         protocol = _getEnv(otelExporterOtlpTracesProtocol) ??
-            _getEnv(otelExporterOtlpProtocol);
+            _getEnv(otelExporterOtlpProtocol) ?? protocol;
         break;
       case 'metrics':
         protocol = _getEnv(otelExporterOtlpMetricsProtocol) ??
-            _getEnv(otelExporterOtlpProtocol);
+            _getEnv(otelExporterOtlpProtocol) ?? protocol;
         break;
       case 'logs':
         protocol = _getEnv(otelExporterOtlpLogsProtocol) ??
-            _getEnv(otelExporterOtlpProtocol);
+            _getEnv(otelExporterOtlpProtocol) ?? protocol;
         break;
     }
     if (protocol != null) {
@@ -131,15 +130,15 @@ class OTelEnv {
     switch (signal) {
       case 'traces':
         headers = _getEnv(otelExporterOtlpTracesHeaders) ??
-            _getEnv(otelExporterOtlpHeaders);
+            _getEnv(otelExporterOtlpHeaders) ?? newHeaders;
         break;
       case 'metrics':
         headers = _getEnv(otelExporterOtlpMetricsHeaders) ??
-            _getEnv(otelExporterOtlpHeaders);
+            _getEnv(otelExporterOtlpHeaders) ?? newHeaders;
         break;
       case 'logs':
         headers = _getEnv(otelExporterOtlpLogsHeaders) ??
-            _getEnv(otelExporterOtlpHeaders);
+            _getEnv(otelExporterOtlpHeaders) ?? newHeaders;
         break;
     }
     if (headers != null) {

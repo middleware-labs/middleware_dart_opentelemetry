@@ -7,7 +7,7 @@
 // dart test --dart-define=OTEL_SERVICE_NAME=test-service test/integration/environment_variables_test.dart
 // ./tool/test_env_vars.sh
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 void main() {

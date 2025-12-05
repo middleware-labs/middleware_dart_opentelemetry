@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 Future<void> main() async {
   // Initialize from env (protocol/endpoint/headers/etc.)

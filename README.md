@@ -2,20 +2,14 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![OpenTelemetry Specification](https://img.shields.io/badge/OpenTelemetry-Specification-blueviolet)](https://opentelemetry.io/docs/specs/otel/)
-[![Coverage Report](https://img.shields.io/badge/coverage-report-brightgreen.svg)](https://mindfulsoftwarellc.github.io/dartastic_opentelemetry/)
+[![Coverage Report](https://img.shields.io/badge/coverage-report-brightgreen.svg)](https://mindfulsoftwarellc.github.io/middleware_opentelemetry/)
 
-Dartastic is an [OpenTelemetry](https://opentelemetry.io/) SDK to add standard observability to Dart applications.
-Dartastic can be used with any OTel backend, it's standards-compliant.
+Middleware is an [OpenTelemetry](https://opentelemetry.io/) SDK to add standard observability to Dart applications.
+Middleware can be used with any OTel backend, it's standards-compliant.
 
-Flutter developers should use the [Flutterific OpenTelemetry SDK](https://pub.dev/packages/flutterrific_opentelemetry/) which builds on top of Dartastic OTel.
+Flutter developers should use the [MiddlewareFlutter OpenTelemetry SDK](https://pub.dev/packages/middleware_flutter_opentelemetry/) which builds on top of Middleware Dart OTel.
 
-The Dartastic and Flutterrific OTel SDK has been proposed for [Donation to the CNCF](https://github.com/open-telemetry/community/issues/2718).
-We need YOU to grow the Dartastic community and make this SDK the standard for Flutter and Dart OTel.
-Please use it, submit issues, support us with stars and contribute PRs. We are looking for contributors and maintainers.
-Also, please support the development by subscribing at [Dartastic.io](https://dartastic.io) and gain early access to the
-Flutter SDK and the Wondrous Demo.
-
-[Dartastic.io](https://dartastic.io) provides an OpenTelemetry support, training, consulting
+[Middleware.io](https://middleware.io) provides an OpenTelemetry support, training, consulting
 and an Observability backend customized for Flutter apps, Dart backends, and any other service or process that produces
 OpenTelemetry data.
 
@@ -26,16 +20,16 @@ OpenTelemetry data.
 - 📐 **Standards Compliant**: Complies with the [OpenTelemetry specification](https://opentelemetry.io/docs/specs/)
   so it's portable and future-proof.
 - 🌎 **Ecosystem**:
-  - [Dartastic.io](https://dartastic.io) is an OTel backend for Dart with a generous free tier,
+  - [Middleware.io](https://middleware.io) is an OTel backend for Dart with a generous free tier,
     professional support and enterprise features.
-  - [Flutterrific OTel](https://pub.dev/packages/flutterrific_opentelemetry)
-    adds Dartastic OTel to Flutter apps with ease.  Observe app routes, errors, web vitals and more with as few
+  - [MiddlewareFlutter OTel](https://pub.dev/packages/flutterrific_opentelemetry)
+    adds Middleware OTel to Flutter apps with ease.  Observe app routes, errors, web vitals and more with as few
     as two lines of code.
 - 💪🏻 **Powerful**:
   - Propagate OpenTelemetry Context across async gaps and Isolates.
   - Pick from a rich set of Samplers including On/Off, probability and rate-limiting.
   - Automatically capture platform resources on initialization.
-  - No skimping - If it's optional in the spec, it's included in Dartastic.
+  - No skimping - If it's optional.
   - A pluggable and extensible API and SDK enables implementation freedom.
 - 🧷 **Typesafe Semantics**: Ensure you're speaking the right language with a massive set of enums matching
   the [OpenTelemetry Semantics Conventions](https://opentelemetry.io/docs/specs/semconv/).
@@ -46,8 +40,6 @@ OpenTelemetry data.
 - 🐞 **Well Tested**: Good test coverage (>85%). 
 - 📃 **Quality Documentation**: If it's not clearly documented, it's a bug. Extensive examples and best practices are
   provided. See the examples directory. 
-- 🎬 **Demo** The [Wonderous OpenTelemetry Demo](https://github.com/MindfulSoftwareLLC/wondrous_opentelemetry) demonstrates  
-  gskinner's Wonderous App with instrumentation for OpenTelemetry.
 - ✅ **Supported Telemetry Signals and Features**:
   - Tracing with span processors and samplers
   - Metrics collection and aggregation
@@ -55,7 +47,7 @@ OpenTelemetry data.
   - Baggage management
   - Logging is not available yet
 
-[Dartastic OTel](https://pub.dev/packages/dartastic_opentelemetry) is suitable for Dart backends, CLIs or any
+[Middleware_Dart OTel](https://pub.dev/packages/middleware_dart_opentelemetry) is suitable for Dart backends, CLIs or any
 Dart application.
 
 [Dartastic OTel API](https://pub.dev/packages/dartastic_opentelemetry_api) is the API for the Dartastic OTel SDK.
@@ -63,20 +55,16 @@ The `dartastic_opentelemetry_api` exists as a standalone library to strictly adh
 OpenTelemetry specification which separates API and the SDK.  All OpenTelemetry API classes on in
 `dartastic_opentelemetry_api`.
 
-[Flutterrific OTel](https://pub.dev/packages/flutterrific_opentelemetry) adds Dartastic OTel to Flutter apps with ease.  Sign Up at Dartastic.io for early access to this soon to be open source.
+[Middleware_Flutter OTel](https://pub.dev/packages/middleware_flutter_opentelemetry) adds Middleware Dart OTel to Flutter apps with ease.
 
-[Dartastic.io](https://dartastic.io) is an OpenTelemetry backend based on Elastic with a generous free tier.
-
-Dartastic and Flutterrific OTel are made with 💙 by Michael Bushe at [Mindful Software](https://mindfulsoftware.com).
-
-Mindful Software offers paid support, consulting and developing on Flutter, OpenTelemetry and UI Architecture.
+Middleware dart and flutter-sdk OTel are made with 💙
 
 ## Getting started
 
 Include this in your pubspec.yaml:
 ```
 dependencies:
-  dartastic_opentelemetry: ^0.9.3
+  middleware_dart_opentelemetry: ^0.9.3
 ```
 
 The entrypoint to the SDK is the `OTel` class.  `OTel` has static "factory" methods for all
@@ -90,7 +78,7 @@ through POSIX variable or `-D` or `--define` for Dart or with `--dart-define` fo
 
 ## Environment Variables
 
-Dartastic OpenTelemetry ~~supports~~ is working on support for all standard OpenTelemetry environment variables as defined in the [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/).
+Middleware Dart OpenTelemetry ~~supports~~ is working on support for all standard OpenTelemetry environment variables as defined in the [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/).
 
 Environment variables provide a convenient way to configure OpenTelemetry without hardcoding values. 
 All environment variable names are available as strongly-typed constants in the SDK for compile-time 
@@ -134,7 +122,7 @@ neither POSIX env vars nor `--dart-define`s can override code.  This is sensible
 All OpenTelemetry environment variable names are available as typed constants:
 
 ```dart
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() {
   // Reference constants instead of strings
@@ -244,7 +232,7 @@ dart run --dart-define=OTEL_SERVICE_NAME=from-dart-define
 #### In Code
 
 ```dart
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() async {
   // OTel.initialize() automatically reads environment variables
@@ -289,7 +277,7 @@ The SDK includes an integration test suite (`test/integration/environment_variab
 ### Minimal Code Example
 
 ```dart
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() async {
   // Initialize - automatically reads environment variables
@@ -313,7 +301,7 @@ void main() async {
 }
 ```
 
-Since dartastic_opentelemetry exports all the classes of `opentelemetry_api`, refer to
+Since middleware_opentelemetry exports all the classes of `opentelemetry_api`, refer to
 `opentelemetry_api` for documentation of API classes.
 
 See the `/example` folder for more examples.
@@ -383,7 +371,7 @@ final observableCounter = meter.createObservableCounter(
 | ObservableUpDownCounter | Count things that can increase or decrease, collected on demand | Memory usage                     |
 | ObservableGauge         | Record current value, collected on demand                       | Current temperature              |
 
-## Integration with Dartastic/Flutterrific
+## Integration with Dart/Flutter
 
 This API implementation follows the same pattern as the tracing API, where the creation of objects is managed through
 factory methods. This allows for a clear separation between API and SDK, and ensures that the metrics functionality
@@ -391,29 +379,14 @@ can be used in a no-op mode when the SDK is not initialized.
 
 ## Commercial Support
 
-[Dartastic.io](https://dartastic.io) provides an OpenTelemetry Observability backend specifically built for Dart and Flutter applications. Features include:
+[Middleware.io](https://middleware.io) provides an OpenTelemetry Observability backend specifically built for Dart and Flutter applications. Features include:
 
 - Enhanced tracing with source code integration
+- Session Replay
 - Real-time user monitoring for Flutter apps
 - Advanced dashboard and visualization
 - Integration with native platforms
 - Generous free tier and enterprise support options
-
-## Roadmap
-
-- [ ] Enhanced metrics support
-- [ ] Support for Zipkin, Jaeger
-- [ ] Integration with common Dart libraries (Dio, etc.)
-- [ ] Context propagation through http, Android, iOS, WebViews
-
-
-## CNCF Contribution and Alignment
-
-This project aims to align with Cloud Native Computing Foundation (CNCF) best practices:
-
-- **Interoperability** - Works with the broader OpenTelemetry ecosystem
-- **Specification compliance** - Strictly follows the OpenTelemetry specification
-- **Vendor neutrality** - Provides a vendor-neutral implementation
 
 
 ## License
@@ -422,28 +395,22 @@ Apache 2.0 - See the [LICENSE](LICENSE) file for details.
 
 ## Commercial Support
 
-[Mindful Software](https://mindfulsoftware.com) offers paid Dartastic support, and consulting and developing on Flutter, OpenTelemetry and UI Architecture.
-
-[Dartastic.io](https://dartastic.io) provides an OpenTelemetry support, training, consulting, enhanced private packages
+[Middleware.io](https://middleware.io) provides an OpenTelemetry support, training, consulting, enhanced private packages
 and an Observability backend customized for Flutter apps, Dart backends, and any other service or process that produces
 OpenTelemetry data.
-Dartastic.io is built on open standards, specifically catering to Flutter and Dart applications with the ability to show
+Middleware.io is built on open standards, specifically catering to Flutter and Dart applications with the ability to show
 Dart source code lines and function calls from production errors and logs.
 
-Dartastic.io offers:
+Middleware.io offers:
 - Free, paid, and enterprise support
 - Packages with advanced features not available in the open source offering
 - Native code integration and Real-Time User Monitoring for Flutter apps
 - Multiple backends (Elastic, Grafana) customized for Flutter apps.
 
-## AI Usage
-Practically all code in Dartastic was generated via Claude. EVERY character 
-is reviewed by a human.  Tests may need improved quality.
-
 ## Additional information
 
-- Flutter developers should use the [Flutterific OTel SDK](https://pub.dev/packages/flutterrific_opentelemetry).
-- Dart backend developers should use the [Dartastic OTel SDK](https://pub.dev/packages/dartastic_opentelemetry).
+- Flutter developers should use the [flutter OTel SDK](https://pub.dev/packages/flutter_middleware_opentelemetry).
+- Dart backend developers should use the [Middleware OTel SDK](https://pub.dev/packages/middleware_opentelemetry).
 - Also see:
-  - [Dartastic.io](https://dartastic.io/) the Flutter OTel backend
+  - [Middleware.io](https://middleware.io/) the Flutter OTel backend
   - [The OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/)

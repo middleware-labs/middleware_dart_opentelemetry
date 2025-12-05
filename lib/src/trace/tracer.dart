@@ -1,10 +1,9 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 library;
 
-import 'package:dartastic_opentelemetry/src/trace/sampling/sampler.dart';
-import 'package:dartastic_opentelemetry/src/trace/tracer_provider.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/sampling/sampler.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/tracer_provider.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 
 import '../otel.dart';

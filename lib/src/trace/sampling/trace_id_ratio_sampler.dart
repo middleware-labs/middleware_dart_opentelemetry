@@ -1,9 +1,8 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:math' as math;
 
-import '../../../dartastic_opentelemetry.dart';
+import '../../../middleware_dart_opentelemetry.dart';
 
 /// A sampler that samples traces based on a probability defined by the ratio of
 /// traces that should be sampled. The ratio must be in the range [0.0, 1.0].

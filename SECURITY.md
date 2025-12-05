@@ -14,7 +14,7 @@ Below are the versions of the OpenTelemetry SDK for Dart that are currently supp
 We take the security of OpenTelemetry SDK for Dart seriously. If you believe you have found a security vulnerability, please follow these steps:
 
 1. **Do not disclose the vulnerability publicly**
-2. **Contact the maintainers privately** - Email security@dartastic.io with details of the vulnerability
+2. **Contact the maintainers privately** - Email security@middleware.io with details of the vulnerability
 3. **Provide sufficient information** to reproduce the issue, including:
    - Description of the vulnerability
    - Steps to reproduce

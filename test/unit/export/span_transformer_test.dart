@@ -1,11 +1,10 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
-import 'package:dartastic_opentelemetry/proto/opentelemetry_proto_dart.dart'
+import 'package:middleware_dart_opentelemetry/proto/opentelemetry_proto_dart.dart'
     as proto;
-import 'package:dartastic_opentelemetry/src/otel.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/span_transformer.dart';
-import 'package:dartastic_opentelemetry/src/trace/span.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/span_transformer.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:test/test.dart';
 

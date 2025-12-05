@@ -1,6 +1,6 @@
 // Licensed under the Apache License, Version 2.0
 // Copyright 2025, Michael Bushe, All rights reserved.
-import 'package:dartastic_opentelemetry/src/trace/tracer_provider.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/tracer_provider.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import '../metrics/meter_provider.dart';
 
@@ -21,12 +21,12 @@ OTelFactory otelSDKFactoryFactoryFunction({
   required String apiEndpoint,
   required String apiServiceName,
   required String apiServiceVersion,
+  Resource? resource,
 }) {
   return OTelSDKFactory(
     apiEndpoint: apiEndpoint,
     apiServiceName: apiServiceName,
-    apiServiceVersion: apiServiceVersion,
-  );
+    apiServiceVersion: apiServiceVersion);
 }
 
 /// Factory implementation for creating OpenTelemetry SDK objects.
@@ -87,7 +87,7 @@ class OTelSDKFactory extends OTelAPIFactory {
   APITracerProvider tracerProvider(
       {required String endpoint,
       String serviceName =
-          "@dart/opentelemetry_api", //TODO - @dart/dartastic_opentelemetry
+          "@dart/opentelemetry_api", //TODO - @dart/middleware_opentelemetry
       String? serviceVersion,
       Resource? resource}) {
     return SDKTracerProviderCreate.create(

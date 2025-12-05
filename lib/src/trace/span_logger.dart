@@ -1,7 +1,6 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
-import '../../dartastic_opentelemetry.dart' show Span, OTelLog;
+import '../../middleware_dart_opentelemetry.dart' show Span, OTelLog;
 
 /// Logs a single span with an optional message.
 ///

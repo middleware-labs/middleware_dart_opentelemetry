@@ -1,10 +1,9 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
-import 'package:dartastic_opentelemetry/src/otel.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/simple_span_processor.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/simple_span_processor.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 
 void main() async {

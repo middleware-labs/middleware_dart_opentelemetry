@@ -1,10 +1,9 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dartastic_opentelemetry/src/util/zip/gzip.dart';
+import 'package:middleware_dart_opentelemetry/src/util/zip/gzip.dart';
 import 'package:test/test.dart';
 
 void main() {

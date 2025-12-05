@@ -1,8 +1,7 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'package:benchmark_harness/benchmark_harness.dart';
-import 'package:dartastic_opentelemetry/src/otel.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
 
 /// Benchmarks for attributes
 class AttributesBenchmark extends BenchmarkBase {

@@ -48,7 +48,7 @@ All participants in the project are expected to follow the CNCF Code of Conduct 
 This project aims to be a compliant implementation of the OpenTelemetry specification for Dart. While we maintain our own governance for this specific implementation, we:
 
 - Follow the OpenTelemetry specification
-- Implement the [OpenTelemetry SDK for Dart](https://pub.dev/packages/dartastic_opentelemetry)
+- Implement the [OpenTelemetry SDK for Dart](https://pub.dev/packages/middleware_opentelemetry)
 - Seek alignment with the broader OpenTelemetry community
 - Prioritize interoperability with other OpenTelemetry implementations
 - Support compatibility with the OpenTelemetry Collector

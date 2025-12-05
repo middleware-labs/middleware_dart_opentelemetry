@@ -29,7 +29,7 @@ There are many ways to contribute to this project:
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/MindfulSoftwareLLC/opentelemetry_api.git
+   git remote add upstream https://github.com/middleware-labs/opentelemetry_api.git
    ```
 4. Install dependencies:
    ```bash

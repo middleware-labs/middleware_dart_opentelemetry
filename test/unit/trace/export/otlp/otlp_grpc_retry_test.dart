@@ -1,14 +1,13 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 
 import 'dart:io';
 
-import 'package:dartastic_opentelemetry/src/otel.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
-import 'package:dartastic_opentelemetry/src/trace/span.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:grpc/grpc.dart' as grpc;
 import 'package:test/test.dart';

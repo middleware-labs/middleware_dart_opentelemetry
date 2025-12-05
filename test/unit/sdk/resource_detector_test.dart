@@ -1,11 +1,10 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:io' as io;
 
-import 'package:dartastic_opentelemetry/src/otel.dart';
-import 'package:dartastic_opentelemetry/src/resource/resource.dart';
-import 'package:dartastic_opentelemetry/src/resource/resource_detector.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
+import 'package:middleware_dart_opentelemetry/src/resource/resource.dart';
+import 'package:middleware_dart_opentelemetry/src/resource/resource_detector.dart';
 import 'package:test/test.dart';
 
 void main() {

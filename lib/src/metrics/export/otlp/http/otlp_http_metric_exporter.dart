@@ -1,13 +1,12 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
-import 'package:dartastic_opentelemetry/src/metrics/export/otlp/metric_transformer.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/src/metrics/export/otlp/metric_transformer.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -277,15 +276,15 @@ class OtlpHttpMetricExporter implements MetricExporter {
           MetricTransformer.transformResource(metrics.resource!);
     } else {
       resourceMetrics.resource =
-          MetricTransformer.transformResource(OTel.resource(null));
+          MetricTransformer.transformResource(OTel.defaultResource!);
     }
 
     // Create scope metrics
     final scopeMetrics = metrics_pb.ScopeMetrics();
 
     // Add instrumentation scope
-    scopeMetrics.scope.name = '@dart/dartastic_opentelemetry';
-    scopeMetrics.scope.version = '1.0.0';
+    // scopeMetrics.scope.name = '@dart/middleware_opentelemetry';
+    // scopeMetrics.scope.version = '1.0.0';
 
     // Add metrics to scope
     for (final metric in metrics.metrics) {

@@ -1,8 +1,8 @@
-name: dartastic_opentelemetry
-description: Dartastic.io's OpenTelemetry SDK for Dart
-version: 0.9.3
-repository: https://github.com/MindfulSoftwareLLC/dartastic_opentelemetry.git
-homepage: https://dartastic.io
+name: middleware_dart_opentelemetry
+description: Middleware.io's OpenTelemetry SDK for Dart
+version: 1.0.0
+repository: https://github.com/middleware-labs/middleware_dart_opentelemetry.git
+homepage: https://middleware.io
 
 environment:
   sdk: ^3.0.0

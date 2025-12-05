@@ -1,5 +1,4 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import '../../otel.dart';
 import '../../resource/resource.dart';
@@ -41,7 +40,6 @@ class MetricsConfiguration {
     if (resource != null) {
       meterProvider.resource = resource;
     }
-
     // Add the metric reader
     meterProvider.addMetricReader(metricReader);
 

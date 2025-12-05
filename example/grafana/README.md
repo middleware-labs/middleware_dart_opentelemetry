@@ -48,7 +48,7 @@ chmod +x run_grafana_smoke_test_improved.sh
 
 1. Go to your Grafana Cloud instance
 2. Navigate to **Explore** → **Traces**
-3. Look for traces with service name `@dart/dartastic_opentelemetry`
+3. Look for traces with service name `@dart/middleware_opentelemetry`
 4. You should see a span named `gc-smoke-span`
 
 ## Common Issues
@@ -151,4 +151,4 @@ dart run grafana_smoke_test.dart
 - [Grafana Cloud Documentation](https://grafana.com/docs/grafana-cloud/)
 - [OpenTelemetry Protocol Specification](https://opentelemetry.io/docs/specs/otel/protocol/)
 - [OTLP Exporter Configuration](https://opentelemetry.io/docs/specs/otel/protocol/exporter/)
-- [Issue #9: OTEL_EXPORTER_OTLP_HEADERS Support](https://github.com/MindfulSoftwareLLC/dartastic_opentelemetry/issues/9)
+

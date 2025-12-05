@@ -1,13 +1,12 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 
-import 'package:dartastic_opentelemetry/src/otel.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/span_transformer.dart';
-import 'package:dartastic_opentelemetry/src/trace/span.dart';
-import 'package:dartastic_opentelemetry/src/trace/tracer.dart';
-import 'package:dartastic_opentelemetry/src/trace/tracer_provider.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/span_transformer.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/tracer.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/tracer_provider.dart';
 import 'package:test/test.dart';
 
 void main() {

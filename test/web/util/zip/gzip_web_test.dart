@@ -1,5 +1,4 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 @TestOn('browser')
 library;
@@ -7,7 +6,7 @@ library;
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dartastic_opentelemetry/src/util/zip/gzip_web.dart';
+import 'package:middleware_dart_opentelemetry/src/util/zip/gzip_web.dart';
 import 'package:test/test.dart';
 
 void main() {

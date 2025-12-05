@@ -2,7 +2,7 @@
 // Simple utility to read environment variables and output them in a parseable format
 // Used by test_env_vars.sh to verify environment variable reading works correctly
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main(List<String> args) {
   final envService = EnvironmentService.instance;

@@ -1,11 +1,10 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:typed_data';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:meta/meta.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 /// Main entry point for the OpenTelemetry SDK.
 ///
@@ -45,17 +44,17 @@ class OTel {
   /// that don't have a specific resource set.
   static Resource? defaultResource;
 
-  /// API key for Dartastic.io backend, if used.
-  static String? dartasticApiKey;
+  /// API key for Middleware.io backend, if used.
+  static String? middlewareAccountKey;
 
   /// Default service name used if none is provided.
-  static const defaultServiceName = "@dart/dartastic_opentelemetry";
+  static const defaultServiceName = "@dart/middleware_opentelemetry";
 
   /// Default OTEL endpoint
   static const defaultEndpoint = "http://localhost:4317";
 
   /// Default tracer name used if none is provided.
-  static const String _defaultTracerName = 'dartastic';
+  static const String _defaultTracerName = 'middleware';
 
   /// Default tracer name that can be customized.
   static String defaultTracerName = _defaultTracerName;
@@ -74,9 +73,9 @@ class OTel {
   ///
   /// @param endpoint The endpoint URL for the OpenTelemetry collector (default: http://localhost:4317)
   /// @param secure Whether to use TLS for the connection (default: true)
-  /// @param serviceName Name that uniquely identifies the service (default: "@dart/dartastic_opentelemetry")
+  /// @param serviceName Name that uniquely identifies the service (default: "@dart/middleware_opentelemetry")
   /// @param serviceVersion Version of the service (defaults to the OTel spec version)
-  /// @param tracerName Name of the default tracer (default: "dartastic")
+  /// @param tracerName Name of the default tracer (default: "middleware")
   /// @param tracerVersion Version of the default tracer (default: null)
   /// @param resourceAttributes Additional attributes for the resource
   /// @param spanProcessor Custom span processor (default: BatchSpanProcessor with OtlpGrpcSpanExporter)
@@ -85,8 +84,7 @@ class OTel {
   /// @param metricExporter Custom metric exporter for metrics
   /// @param metricReader Custom metric reader for metrics
   /// @param enableMetrics Whether to enable metrics collection (default: true)
-  /// @param dartasticApiKey API key for Dartastic.io backend
-  /// @param tenantId Tenant ID for multi-tenant backends (required for Dartastic.io)
+  /// @param Middleware Account Key for Middleware.io backend
   /// @param detectPlatformResources Whether to detect platform resources (default: true)
   /// @param oTelFactoryCreationFunction Factory function for creating OTelSDKFactory instances
   /// @return A Future that completes when initialization is done
@@ -106,7 +104,7 @@ class OTel {
     MetricExporter? metricExporter,
     MetricReader? metricReader,
     bool enableMetrics = true,
-    String? dartasticApiKey,
+    String? middlewareAccountKey,
     String? tenantId,
     bool detectPlatformResources = true,
     OTelFactoryCreationFunction? oTelFactoryCreationFunction =
@@ -163,7 +161,13 @@ class OTel {
     }
 
     // Get otlpConfig for exporter creation later
-    final otlpConfigForExporter = OTelEnv.getOtlpConfig(signal: 'traces');
+    var otlpConfigForExporter = OTelEnv.getOtlpConfig(signal: 'traces');
+    if (middlewareAccountKey != null) {
+      otlpConfigForExporter = OTelEnv.getOtlpConfig(
+          signal: 'traces',
+          newHeaders: "Authorization=" + middlewareAccountKey!);
+    }
+
 
     // Get resource attributes from environment and merge with provided ones
     final envResourceAttrs = OTelEnv.getResourceAttributes();
@@ -200,14 +204,15 @@ class OTel {
     _defaultSampler = sampler;
     OTel.defaultTracerName = tracerName ?? _defaultTracerName;
     OTel.defaultTracerVersion = tracerVersion ?? defaultTracerVersion;
-    OTel.dartasticApiKey = dartasticApiKey;
+    OTel.middlewareAccountKey = middlewareAccountKey;
     // Initialize logging from environment variables if needed
     initializeLogging();
 
     OTelFactory.otelFactory = factoryFactory(
-        apiEndpoint: endpoint,
-        apiServiceName: serviceName,
-        apiServiceVersion: serviceVersion);
+      apiEndpoint: endpoint,
+      apiServiceName: serviceName,
+      apiServiceVersion: serviceVersion,
+    );
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
@@ -216,6 +221,7 @@ class OTel {
 
     final serviceResourceAttributes = {
       'service.name': serviceName,
+      'project.name': serviceName,
       'service.version': serviceVersion,
     };
     // Create initial resource with service attributes
@@ -281,16 +287,6 @@ class OTel {
             }
           }
         });
-
-        if (!hasTenantId) {
-          // As a last resort, add the tenant_id directly
-          if (OTelLog.isDebug()) {
-            OTelLog.debug('tenant_id was missing - adding it as fallback');
-          }
-          final tenantResource =
-              OTel.resource(OTel.attributesFromMap({'tenant_id': tenantId}));
-          OTel.defaultResource = OTel.defaultResource!.merge(tenantResource);
-        }
       }
     }
 
@@ -1053,7 +1049,7 @@ class OTel {
     _otelFactory = null;
     _defaultSampler = null;
     defaultResource = null;
-    dartasticApiKey = null;
+    middlewareAccountKey = null;
     if (OTelLog.isDebug()) OTelLog.debug('OTel: Reset static fields');
 
     // Reset API state

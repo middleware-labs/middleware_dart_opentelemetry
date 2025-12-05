@@ -1,10 +1,9 @@
 // Licensed under the Apache License, Version 2.0
-// Copyright 2025, Michael Bushe, All rights reserved.
 
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:dartastic_opentelemetry/src/trace/span.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:synchronized/synchronized.dart';
 
