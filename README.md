@@ -45,6 +45,7 @@ OpenTelemetry data.
   - Metrics collection and aggregation
   - Context propagation
   - Baggage management
+  - Http Instrumentation
   - Logging is not available yet
 
 [Middleware_Dart OTel](https://pub.dev/packages/middleware_dart_opentelemetry) is suitable for Dart backends, CLIs or any
@@ -64,7 +65,7 @@ Middleware dart and flutter-sdk OTel are made with 💙
 Include this in your pubspec.yaml:
 ```
 dependencies:
-  middleware_dart_opentelemetry: ^1.0.3
+  middleware_dart_opentelemetry: ^1.0.4
 ```
 
 The entrypoint to the SDK is the `OTel` class.  `OTel` has static "factory" methods for all
@@ -305,6 +306,83 @@ Since middleware_opentelemetry exports all the classes of `opentelemetry_api`, r
 `opentelemetry_api` for documentation of API classes.
 
 See the `/example` folder for more examples.
+
+## 🌐 HTTP Client Instrumentation
+
+Middleware Dart OpenTelemetry includes automatic HTTP client instrumentation for out-of-the-box tracing of outbound HTTP requests.
+This allows you to:
+
+Create spans for each HTTP request
+
+Propagate W3C Trace Context headers (traceparent, tracestate)
+
+Capture HTTP metadata (method, URL, status, timings, errors)
+
+Automatically connect client spans to downstream services
+
+This works for any Dart backend, CLI, or Flutter-based network implementation using dart:io.
+
+### ✨ Features of OTelHttpClient
+
+- Wraps any existing HttpClient
+- Automatically injects OTel propagation headers using your TextMapSetter
+- Creates spans around each request
+- Records exceptions, errors, and status codes
+- Provides full W3C spec-compliant context propagation
+
+### Usage
+#### 1. Import the package
+   ```dart
+   import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+   import 'dart:io';
+   ```
+#### 2. Initialize OpenTelemetry
+   ```dart
+    await OTel.initialize(
+      serviceName: 'my-dart-service',
+      endpoint: '',
+    );
+   ```
+
+#### 3. Wrap the Dart HttpClient with OTelHttpClient
+  ```dart
+  final client = OTelHttpClient(HttpClient());
+  ```
+
+#### 4. Make instrumented HTTP requests
+  ```dart
+  final request = await client.getUrl(Uri.parse('https://api.example.com/data'));
+  final response = await request.close();
+  
+  print('Status: ${response.statusCode}');
+  ```
+
+That's all you need — spans are now generated automatically and exported via your configured exporter.
+
+
+### 🚀 Full Example
+```dart
+  void main() async {
+    await OTel.initialize(serviceName: 'http-client-demo');
+    
+    final tracer = OTel.tracer();
+    final client = OTelHttpClient(HttpClient());
+    
+    final span = tracer.startSpan('demo-operation');
+    
+    await Context.withSpan(span, () async {
+    final request = await client.getUrl(Uri.parse('https://middleware.io'));
+    final response = await request.close();
+    print('Status: ${response.statusCode}');
+    });
+    span.end();
+  }
+```
+
+This automatically creates:
+- A parent span (demo-operation)
+- A child HTTP client span for the outbound request
+- Correct W3C propagation
 
 ## OpenTelemetry Metrics API
 
