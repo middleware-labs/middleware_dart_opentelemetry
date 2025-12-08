@@ -16,7 +16,7 @@ import 'package:test/test.dart';
 import '../../testing_utils/real_collector.dart';
 
 void main() {
-  //RealColletor is not reliable enough for unit tests
+  //RealCollector is not reliable enough for unit tests
   group('Resource Tenant ID Test', () {
     late RealCollector collector;
     late OtlpGrpcSpanExporter exporter;
@@ -68,7 +68,6 @@ void main() {
       await OTel.initialize(
           endpoint: 'http://localhost:${collector.port}',
           serviceName: serviceName,
-          tenantId: '123456789',
           spanProcessor: null);
 
       // Create exporter

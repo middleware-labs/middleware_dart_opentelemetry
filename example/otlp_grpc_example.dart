@@ -4,18 +4,16 @@ import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart
 
 void main() async {
   // Initialize OTel first with the endpoint
-  // String endpoint = 'https://otel-dev.dartastic.io:443';
+  // String endpoint = 'https://app.middleware.op';
   // var secure = true;
-  final endpoint =
-      'http://ec2-3-139-70-11.us-east-2.compute.amazonaws.com:4317';
+  final endpoint = 'http://app.middleware.io';
   final secure = false;
   await OTel.initialize(
       secure: secure,
       endpoint: endpoint,
-      serviceName: 'dartastic-examples',
+      serviceName: 'middleware-examples',
       tracerName: 'otlp_grpc_example',
       tracerVersion: '1.0.0',
-      tenantId: 'my-valued-customer',
       // Always consult the OTel Semantic Conventions to find an existing
       // convention name for an attribute:
       // https://opentelemetry.io/docs/specs/semconv/general/attributes/
@@ -36,24 +34,24 @@ void main() async {
 
   // Create a new root span
   final rootSpan = tracer.startSpan(
-    'root-operation-dartastic',
+    'root-operation-middleware',
     attributes: OTel.attributesFromMap({
-      'example-dartastic.key': 'example-value-dartastic',
+      'middlewareAccountKey': 'example-value-middleware',
     }),
   );
 
   try {
     // Add an event to match Python example
-    rootSpan.addEventNow('Event within span-dartastic');
+    rootSpan.addEventNow('Event within span-middleware');
 
-    print('Dartastic Trace with a span sent to OpenTelemetry.');
+    print('Middleware Trace with a span sent to OpenTelemetry.');
 
     // Simulate some work
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
     // Create a child span
     final childSpan = tracer.startSpan(
-      'child-operation-dartastic',
+      'child-operation-middleware',
       parentSpan: rootSpan,
     );
 

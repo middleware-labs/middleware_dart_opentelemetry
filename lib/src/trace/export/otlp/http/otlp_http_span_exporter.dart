@@ -5,11 +5,11 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart'
     show OTelLog;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 
 import '../../../../util/zip/gzip.dart';
 import '../../../span_logger.dart';
@@ -125,7 +125,7 @@ class OtlpHttpSpanExporter implements SpanExporter {
           'OtlpHttpSpanExporter: Preparing to export ${spans.length} spans');
       for (var span in spans) {
         OTelLog.debug(
-            '  Span: ${span.name}, spanId: ${span.spanContext.spanId}, traceId: ${span.spanContext.traceId}, Attributes: ${span.attributes}');
+            '  Span: ${span.name}, spanId: ${span.spanContext.spanId}, traceId: ${span.spanContext.traceId}');
       }
     }
 

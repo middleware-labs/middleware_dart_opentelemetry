@@ -1,10 +1,10 @@
 // Licensed under the Apache License, Version 2.0
 
+import 'package:fixnum/fixnum.dart';
 import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:middleware_dart_opentelemetry/proto/metrics/v1/metrics.pb.dart'
     as proto;
 import 'package:middleware_dart_opentelemetry/src/metrics/export/otlp/metric_transformer.dart';
-import 'package:fixnum/fixnum.dart';
 import 'package:test/test.dart';
 
 void main() {

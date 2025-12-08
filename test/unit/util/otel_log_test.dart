@@ -2,11 +2,11 @@
 
 import 'dart:io';
 
+import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart'
+    show LogFunction, LogLevel;
 import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/span_logger.dart'
     show logSpan, logSpans;
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart'
-    show LogFunction, LogLevel;
 import 'package:test/test.dart';
 
 void main() {

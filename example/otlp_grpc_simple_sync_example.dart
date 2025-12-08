@@ -1,10 +1,10 @@
 // Licensed under the Apache License, Version 2.0
 
+import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/otel.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/export/simple_span_processor.dart';
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 
 void main() async {
   // Initialize with automatic resource detection

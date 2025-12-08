@@ -2,9 +2,9 @@
 
 library;
 
-import 'package:middleware_dart_opentelemetry/src/otel.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:meta/meta.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
 
 part 'resource_create.dart';
 

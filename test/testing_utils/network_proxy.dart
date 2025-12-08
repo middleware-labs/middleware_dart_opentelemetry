@@ -2,9 +2,9 @@
 
 import 'dart:async';
 
+import 'package:grpc/grpc.dart' as grpc;
 import 'package:middleware_dart_opentelemetry/proto/opentelemetry_proto_dart.dart'
     as proto;
-import 'package:grpc/grpc.dart' as grpc;
 
 class NetworkProxyService extends proto.TraceServiceBase {
   final String targetHost;

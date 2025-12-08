@@ -3,8 +3,8 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:synchronized/synchronized.dart';
 
 import '../span_processor.dart';

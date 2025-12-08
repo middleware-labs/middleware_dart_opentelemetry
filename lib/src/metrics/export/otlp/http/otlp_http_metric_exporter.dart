@@ -5,10 +5,10 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
-import 'package:middleware_dart_opentelemetry/src/metrics/export/otlp/metric_transformer.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/src/metrics/export/otlp/metric_transformer.dart';
 
 import '../../../../../proto/collector/metrics/v1/metrics_service.pb.dart';
 import '../../../../../proto/metrics/v1/metrics.pb.dart' as metrics_pb;

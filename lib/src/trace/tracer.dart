@@ -2,9 +2,9 @@
 
 library;
 
+import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/sampling/sampler.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/tracer_provider.dart';
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 
 import '../otel.dart';
 import '../resource/resource.dart';

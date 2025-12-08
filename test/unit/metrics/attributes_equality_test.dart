@@ -1,7 +1,7 @@
 // Licensed under the Apache License, Version 2.0
 
-import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 /// Tests to ensure that attributes behave properly as Map keys

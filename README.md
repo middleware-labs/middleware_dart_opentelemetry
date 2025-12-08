@@ -7,7 +7,7 @@
 Middleware is an [OpenTelemetry](https://opentelemetry.io/) SDK to add standard observability to Dart applications.
 Middleware can be used with any OTel backend, it's standards-compliant.
 
-Flutter developers should use the [MiddlewareFlutter OpenTelemetry SDK](https://pub.dev/packages/middleware_flutter_opentelemetry/) which builds on top of Middleware Dart OTel.
+Flutter developers should use the [Middleware_Flutter OpenTelemetry SDK](https://pub.dev/packages/middleware_flutter_opentelemetry/) which builds on top of Middleware Dart OTel.
 
 [Middleware.io](https://middleware.io) provides an OpenTelemetry support, training, consulting
 and an Observability backend customized for Flutter apps, Dart backends, and any other service or process that produces

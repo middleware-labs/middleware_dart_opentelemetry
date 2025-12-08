@@ -105,7 +105,6 @@ class OTel {
     MetricReader? metricReader,
     bool enableMetrics = true,
     String? middlewareAccountKey,
-    String? tenantId,
     bool detectPlatformResources = true,
     OTelFactoryCreationFunction? oTelFactoryCreationFunction =
         otelSDKFactoryFactoryFunction,
@@ -164,8 +163,7 @@ class OTel {
     var otlpConfigForExporter = OTelEnv.getOtlpConfig(signal: 'traces');
     if (middlewareAccountKey != null) {
       otlpConfigForExporter = OTelEnv.getOtlpConfig(
-          signal: 'traces',
-          newHeaders: "Authorization=" + middlewareAccountKey!);
+          signal: 'traces', newHeaders: "Authorization=$middlewareAccountKey");
     }
 
     // Get resource attributes from environment and merge with provided ones
@@ -224,20 +222,8 @@ class OTel {
       'service.version': serviceVersion,
     };
     // Create initial resource with service attributes
-    var baseResource =
+    final baseResource =
         OTel.resource(OTel.attributesFromMap(serviceResourceAttributes));
-
-    if (tenantId != null) {
-      // Create a separate tenant_id resource to ensure it's preserved
-      final tenantResource =
-          OTel.resource(OTel.attributesFromMap({'tenant_id': tenantId}));
-      if (OTelLog.isDebug()) {
-        OTelLog.debug(
-            'OTel.initialize: Creating tenant_id resource with: $tenantId');
-      }
-      // Merge tenant into the base resource
-      baseResource = baseResource.merge(tenantResource);
-    }
 
     // Initialize with tenant-aware resource
     var mergedResource = baseResource;
@@ -272,22 +258,6 @@ class OTel {
     }
     // Set the final merged resource as default
     OTel.defaultResource = mergedResource;
-
-    if (OTelLog.isDebug()) {
-      // Final check to ensure tenant_id is preserved
-      if (tenantId != null && OTel.defaultResource != null) {
-        bool hasTenantId = false;
-        OTel.defaultResource!.attributes.toList().forEach((attr) {
-          if (attr.key == 'tenant_id') {
-            hasTenantId = true;
-            if (OTelLog.isDebug()) {
-              OTelLog.debug(
-                  'Final resource check - tenant_id is present: ${attr.value}');
-            }
-          }
-        });
-      }
-    }
 
     if (spanProcessor == null) {
       // Determine which exporter to create based on environment or defaults

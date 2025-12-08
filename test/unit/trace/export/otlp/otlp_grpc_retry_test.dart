@@ -4,12 +4,12 @@
 
 import 'dart:io';
 
+import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
+import 'package:grpc/grpc.dart' as grpc;
 import 'package:middleware_dart_opentelemetry/src/otel.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/otlp_grpc_span_exporter_config.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
-import 'package:grpc/grpc.dart' as grpc;
 import 'package:test/test.dart';
 
 import '../../../../testing_utils/network_proxy.dart';

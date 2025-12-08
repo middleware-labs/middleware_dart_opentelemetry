@@ -1,7 +1,7 @@
 // Licensed under the Apache License, Version 2.0
 
-import 'package:middleware_dart_opentelemetry/src/otel.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
+import 'package:middleware_dart_opentelemetry/src/otel.dart';
 
 /// Implementation of the W3C Trace Context specification for context propagation.
 ///

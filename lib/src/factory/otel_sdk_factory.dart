@@ -1,9 +1,9 @@
 // Licensed under the Apache License, Version 2.0
 // Copyright 2025, Michael Bushe, All rights reserved.
-import 'package:middleware_dart_opentelemetry/src/trace/tracer_provider.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
-import '../metrics/meter_provider.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/tracer_provider.dart';
 
+import '../metrics/meter_provider.dart';
 import '../resource/resource.dart';
 
 /// Factory function that creates an OTelSDKFactory with the specified configuration.

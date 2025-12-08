@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0
 
+import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/otel.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/sampling/composite_sampler.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/sampling/counting_sampler.dart';
@@ -7,7 +8,6 @@ import 'package:middleware_dart_opentelemetry/src/trace/sampling/probability_sam
 import 'package:middleware_dart_opentelemetry/src/trace/sampling/rate_limiting_sampler.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/sampling/sampler.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/sampling/trace_id_ratio_sampler.dart';
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:test/test.dart';
 
 void main() {

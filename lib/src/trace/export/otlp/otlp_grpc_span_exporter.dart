@@ -3,10 +3,10 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart'
     show OTelLog;
 import 'package:grpc/grpc.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 
 import '../../../../proto/opentelemetry_proto_dart.dart' as proto;
 import '../../span_logger.dart';
