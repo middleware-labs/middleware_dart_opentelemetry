@@ -168,7 +168,6 @@ class OTel {
           newHeaders: "Authorization=" + middlewareAccountKey!);
     }
 
-
     // Get resource attributes from environment and merge with provided ones
     final envResourceAttrs = OTelEnv.getResourceAttributes();
     if (envResourceAttrs.isNotEmpty) {

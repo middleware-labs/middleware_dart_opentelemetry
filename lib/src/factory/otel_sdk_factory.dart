@@ -24,9 +24,9 @@ OTelFactory otelSDKFactoryFactoryFunction({
   Resource? resource,
 }) {
   return OTelSDKFactory(
-    apiEndpoint: apiEndpoint,
-    apiServiceName: apiServiceName,
-    apiServiceVersion: apiServiceVersion);
+      apiEndpoint: apiEndpoint,
+      apiServiceName: apiServiceName,
+      apiServiceVersion: apiServiceVersion);
 }
 
 /// Factory implementation for creating OpenTelemetry SDK objects.

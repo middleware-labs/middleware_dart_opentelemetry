@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![OpenTelemetry Specification](https://img.shields.io/badge/OpenTelemetry-Specification-blueviolet)](https://opentelemetry.io/docs/specs/otel/)
-[![Coverage Report](https://img.shields.io/badge/coverage-report-brightgreen.svg)](https://mindfulsoftwarellc.github.io/middleware_opentelemetry/)
+[![Coverage Report](https://img.shields.io/badge/coverage-report-brightgreen.svg)](https://middleware-labs.github.io/middleware_dart_opentelemetry/)
 
 Middleware is an [OpenTelemetry](https://opentelemetry.io/) SDK to add standard observability to Dart applications.
 Middleware can be used with any OTel backend, it's standards-compliant.
@@ -22,7 +22,7 @@ OpenTelemetry data.
 - 🌎 **Ecosystem**:
   - [Middleware.io](https://middleware.io) is an OTel backend for Dart with a generous free tier,
     professional support and enterprise features.
-  - [MiddlewareFlutter OTel](https://pub.dev/packages/flutterrific_opentelemetry)
+  - [Middleware_Flutter OTel](https://pub.dev/packages/middleware_flutter_opentelemetry)
     adds Middleware OTel to Flutter apps with ease.  Observe app routes, errors, web vitals and more with as few
     as two lines of code.
 - 💪🏻 **Powerful**:
@@ -64,7 +64,7 @@ Middleware dart and flutter-sdk OTel are made with 💙
 Include this in your pubspec.yaml:
 ```
 dependencies:
-  middleware_dart_opentelemetry: ^0.9.3
+  middleware_dart_opentelemetry: ^1.0.3
 ```
 
 The entrypoint to the SDK is the `OTel` class.  `OTel` has static "factory" methods for all
@@ -409,8 +409,8 @@ Middleware.io offers:
 
 ## Additional information
 
-- Flutter developers should use the [flutter OTel SDK](https://pub.dev/packages/flutter_middleware_opentelemetry).
-- Dart backend developers should use the [Middleware OTel SDK](https://pub.dev/packages/middleware_opentelemetry).
+- Flutter developers should use the [flutter OTel SDK](https://pub.dev/packages/middleware_flutter_opentelemetry).
+- Dart backend developers should use the [Middleware_Dart OTel SDK](https://pub.dev/packages/middleware_dart_opentelemetry).
 - Also see:
   - [Middleware.io](https://middleware.io/) the Flutter OTel backend
   - [The OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/)
