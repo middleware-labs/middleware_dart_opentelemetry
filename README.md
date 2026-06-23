@@ -13,6 +13,23 @@ Flutter developers should use the [Middleware_Flutter OpenTelemetry SDK](https:/
 and an Observability backend customized for Flutter apps, Dart backends, and any other service or process that produces
 OpenTelemetry data.
 
+[Dartastic.io](https://dartastic.io) tools and services for Dart and Flutter teams shipping to production.
+* **Dartastic Pro OTel Runtime**
+  * Native OTel runtime that takes OTel of the UI thread or server threads.
+    * Detects native crashes
+    * Identifies the janky widget
+    * Strips PII out of your data on the fly.
+    * Sends source code lines with error spans with Symbolizer.
+    * Metrics from iOS, Android and Linux, standard and beyond the standard. 
+    * Use with any o11y backend.
+  * Professionally supported version of this open source dartastic_opentelemetry package and dartastic_opentelemetry_api - and their future CNCF equivalents.
+  * Over 50 OSS OpenTelemetry integration libraries for Dart and Flutter - dio, shelf, logger...
+  * Over 600 Pro OpenTelemetry integration libraries for Dart and Flutter - anthropic, aws, azure, stripe...
+* **Dartastic Pub** [pub.dartastic.io](pub.dartastic.io) Privately share your packages and plugins with your team,
+  partners and customers.
+* **Dartastic Symbolizer** [symbolizer.dartastic.io](symbolizer.dartastic.io) Turn production errors into
+  source code lines with a Web API call. Squash Dart and Flutter bugs fast and keep your source code artifacts private.
+* **Dartastic Hosted** - spin up a private observability ecosystem customized for Flutter and Dart - private pub server, private unlimited Symbolizer, custom dashboards for Dart and Flutter.
 
 ## Features
 
@@ -37,16 +54,17 @@ OpenTelemetry data.
     - Low overhead
     - Batch processing
     - Performance test suite for proven benchmarks
-- 🐞 **Well Tested**: Good test coverage (>85%). 
+- 🐞 **Well Tested**: Very good test coverage (>90%). 
 - 📃 **Quality Documentation**: If it's not clearly documented, it's a bug. Extensive examples and best practices are
   provided. See the examples directory. 
 - ✅ **Supported Telemetry Signals and Features**:
   - Tracing with span processors and samplers
   - Metrics collection and aggregation
+  - Logs with log record processors and exporters
   - Context propagation
-  - Baggage management
+  - Baggage management and optional `BaggageSpanProcessor` to automatically copy baggage entries as span attributes
   - Http Instrumentation
-  - Logging is not available yet
+  - Logging
 
 [Middleware_Dart OTel](https://pub.dev/packages/middleware_dart_opentelemetry) is suitable for Dart backends, CLIs or any
 Dart application.
@@ -65,24 +83,785 @@ Middleware dart and flutter-sdk OTel are made with 💙
 Include this in your pubspec.yaml:
 ```
 dependencies:
-  middleware_dart_opentelemetry: ^1.0.4
+  middleware_dart_opentelemetry: ^1.0.5
 ```
+
+## Usage
 
 The entrypoint to the SDK is the `OTel` class.  `OTel` has static "factory" methods for all
 OTel API and SDK objects.  `OTel` needs to be initialized first to point to an OpenTelemetry
 backend.  Initialization does a lot of work under the hood including gathering a rich set of
 standard resources for any OS that Dart runs in.  It prepares for the creation of the global
-default `TracerProvider` with the serviceName and a default `Tracer`, both created on first use.
-All configuration, include Trace and Metric exporters, can be made in code via `OTel.initialize()`.  
-Codeless configuration can be done with standard OpenTelemetry environmental variables either 
-through POSIX variable or `-D` or `--define` for Dart or with `--dart-define` for Flutter apps.
+default `TracerProvider`, `MeterProvider`, and `LoggerProvider`, with the serviceName and 
+a default `Tracer`, `Meter`, and `OTelLogger`, all created on first use.
 
-## Environment Variables
+All configuration, including Trace, Metric and Log exporter configuration, can be made in code
+via `OTel.initialize()`.  Codeless configuration can be done with standard OpenTelemetry
+environmental variables either through POSIX variable or `-D` or `--define` for Dart or
+with `--dart-define` for Flutter apps.  See [Running with Environment Variables] below
 
 Middleware Dart OpenTelemetry ~~supports~~ is working on support for all standard OpenTelemetry environment variables as defined in the [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/).
 
-Environment variables provide a convenient way to configure OpenTelemetry without hardcoding values. 
-All environment variable names are available as strongly-typed constants in the SDK for compile-time 
+```dart
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+
+Future<void> main() async {
+  // Initialize - automatically reads environment variables.
+  await OTel.initialize();
+
+  // Get the default tracer.
+  final tracer = OTel.tracer();
+
+  // Per the OpenTelemetry spec, tracer.startSpan() does NOT activate the
+  // span. Use tracer.withSpanAsync to make the span active for the
+  // duration of doWork() so that any spans started inside are parented
+  // to it via Context.current.
+  final span = tracer.startSpan('my-operation');
+  try {
+    await tracer.withSpanAsync(span, doWork);
+  } catch (e, stackTrace) {
+    // The span has a status of SpanStatus.Ok on creation, set it to
+    // Error when an error occurs in the span.
+    span.recordException(e, stackTrace: stackTrace);
+    span.setStatus(SpanStatusCode.Error, e.toString());
+    rethrow;
+  } finally {
+    // Always end the span — even on error.
+    span.end();
+  }
+
+  await OTel.shutdown();
+}
+
+Future<void> doWork() async {
+  // Your business logic here.
+}
+```
+
+Since dartastic_opentelemetry exports all the classes of `opentelemetry_api`, refer to
+`opentelemetry_api` for documentation of API classes.
+
+See the `/example` folder for more examples.
+
+## OpenTelemetry Tracing API
+
+The Tracing API is the primary signal in OpenTelemetry. A **trace** represents the end-to-end journey of a request
+through your system.  Each trace is composed of **spans** — individual units of work with a name, timing,
+attributes, and parent-child relationships.
+
+### Concepts
+
+- **TracerProvider**: Entry point to the tracing API, responsible for creating Tracers and configuring the tracing pipeline
+- **Tracer**: Creates Spans for a particular instrumentation scope (library, package, or module)
+- **Span**: Represents a single operation — tracks its name, start/end time, attributes, events, links, and status
+- **SpanProcessor**: Handles span lifecycle events (start, end) and manages export
+- **SpanExporter**: Sends finished spans to a backend (OTLP, console, etc.)
+- **Sampler**: Decides which spans to record and export
+- **Context**: Carries the active span and baggage across async boundaries and service boundaries
+
+### Basic Tracing
+
+```dart
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+
+Future<void> main() async {
+  await OTel.initialize(serviceName: 'my-service');
+
+  // Get the default tracer
+  final tracer = OTel.tracer();
+
+  // Create a span and make it active for the duration of doWork() via
+  // withSpanAsync. Per the OpenTelemetry spec, startSpan does NOT activate
+  // the span — child spans started inside the closure are parented to
+  // `span` via Context.current.
+  // Prefer typed enum keys over raw strings — User.userId is
+  // the OTel semantic-convention key. For app-specific attributes that
+  // don't have a semantic convention, define your own typed enum (see
+  // the Span Attributes section below).
+  final span = tracer.startSpan(
+    'main-operation',
+    kind: SpanKind.server,
+    attributes: OTel.attributesFromMap({
+      User.userId.key: 'user-123',
+      // app-specific key — would normally come from your own typed enum:
+      'request.type': 'example',
+    }),
+  );
+
+  try {
+    await tracer.withSpanAsync(span, doWork);
+  } catch (e, stackTrace) {
+    // The span has a status of SpanStatus.Ok on creation, set it to
+    // Error when an error occurs in the span.
+    span.recordException(e, stackTrace: stackTrace);
+    span.setStatus(SpanStatusCode.Error, e.toString());
+    rethrow;
+  } finally {
+    span.end();
+  }
+
+  await OTel.shutdown();
+}
+```
+
+### Parent-Child Spans
+
+Spans form a tree by linking child spans to parent spans via context:
+
+```dart
+final parentSpan = tracer.startSpan('parent-operation');
+try {
+  // Create a child span linked to the parent. Passing the parent's
+  // SpanContext via `context:` parents this span without requiring the
+  // parent to be active in Context.current.
+  final childSpan = tracer.startSpan(
+    'database.query',
+    kind: SpanKind.client,
+    context: OTel.context(spanContext: parentSpan.spanContext),
+    attributes: OTel.attributesFromSemanticMap({
+      Database.dbSystem: 'postgresql',
+      Database.dbOperation: 'SELECT',
+    }),
+  );
+  try {
+    await queryDatabase();
+  } catch (e, stackTrace) {
+    // The span has a status of SpanStatus.Ok on creation, set it to
+    // Error when an error occurs in the span.
+    childSpan.recordException(e, stackTrace: stackTrace);
+    childSpan.setStatus(SpanStatusCode.Error, e.toString());
+    rethrow;
+  } finally {
+    childSpan.end();
+  }
+} catch (e, stackTrace) {
+  // The span has a status of SpanStatus.Ok on creation, set it to
+  // Error when an error occurs in the span.
+  parentSpan.recordException(e, stackTrace: stackTrace);
+  parentSpan.setStatus(SpanStatusCode.Error, e.toString());
+  rethrow;
+} finally {
+  parentSpan.end();
+}
+```
+
+### Activating a span — `OTel.withSpan` / `OTel.withSpanAsync`
+
+`OTel.withSpan` and `OTel.withSpanAsync` activate a span for the
+duration of `fn` (so `Context.current.span` returns it inside `fn`)
+and record any thrown exception with `SpanStatusCode.Error` before
+rethrowing. The caller still owns `span.end()` — the canonical OTel
+lifecycle is `try / catch / finally`:
+
+```dart
+final span = OTel.tracer().startSpan('compute-result');
+try {
+  final result = OTel.withSpan(span, () => computeExpensiveValue());
+} catch (e, stackTrace) {
+  // The span has a status of SpanStatus.Ok on creation, set it to
+  // Error when an error occurs in the span.
+  span.recordException(e, stackTrace: stackTrace);
+  span.setStatus(SpanStatusCode.Error, e.toString());
+  rethrow;
+} finally {
+  span.end();
+}
+
+// Async version
+final fetchSpan = OTel.tracer().startSpan('fetch-data', kind: SpanKind.client);
+try {
+  final data = await OTel.withSpanAsync(
+    fetchSpan,
+    () => httpClient.get('/api/data'),
+  );
+} catch (e, stackTrace) {
+  fetchSpan.recordException(e, stackTrace: stackTrace);
+  fetchSpan.setStatus(SpanStatusCode.Error, e.toString());
+  rethrow;
+} finally {
+  fetchSpan.end();
+}
+```
+
+If you also want the span as a callback argument and want the span
+ended for you, use `tracer.startActiveSpan` / `startActiveSpanAsync`:
+
+```dart
+// Active span — span is in Context.current AND passed to fn,
+// and ended automatically when fn returns.
+OTel.tracer().startActiveSpan(
+  name: 'process-request',
+  fn: (span) {
+    span.setStringAttribute(ExampleAttribute.requestId.key, 'abc-123');
+    return processRequest();
+  },
+);
+```
+
+### Span Attributes
+
+Attributes are typed key-value pairs on spans. OTel restricts values to `String`, `bool`, `int`, `double`,
+and `List`s of those types.
+
+**Prefer typed enum keys over raw strings.** The API ships enums for every namespace in the
+[OTel semantic conventions](https://opentelemetry.io/docs/specs/semconv/) — `Http`,
+`Url`, `ServerResource`, `Client`, `Database`, `User`,
+`Session`, etc. Using them prevents typos, gives you autocomplete, and tracks the
+spec as it evolves. For app-specific attributes that aren't in a convention, define your own
+enum implementing `OTelSemantic`:
+
+```dart
+// In your own app, name this for your domain (e.g. `CheckoutAttribute`).
+enum ExampleAttribute implements OTelSemantic {
+  requestType('request.type'),
+  processingStage('processing.stage'),
+  durationMs('duration_ms'),
+  tags('tags'),
+  cacheKey('cache.key'),
+  cacheRegion('cache.region'),
+  linkType('link.type'),
+  authMethod('auth.method'),
+  orderId('order.id'),
+  requestId('request.id');
+
+  @override
+  final String key;
+  @override
+  String toString() => key;
+  const ExampleAttribute(this.key);
+}
+```
+
+```dart
+// Type-safe individual attributes — mix API convention enums with your
+// own ExampleAttribute for non-convention keys.
+final span = tracer.startSpan('operation', attributes: OTel.attributes([
+  OTel.attributeString(Http.requestMethod.key, 'GET'),
+  OTel.attributeInt(Http.responseStatusCode.key, 200),
+  OTel.attributeDouble(ExampleAttribute.durationMs.key, 123.45),
+  OTel.attributeStringList(ExampleAttribute.tags.key, ['payment', 'critical']),
+]));
+
+// Or from a map (types are inferred automatically).
+final span = tracer.startSpan('operation',
+  attributes: OTel.attributesFromSemanticMap({
+    Http.requestMethod: 'GET',
+    Http.responseStatusCode: 200,
+  }),
+);
+
+// `attributesOf<E>` is the single-enum form — every key is checked
+// against `Http` at compile time, and Dart 3.10's static dot-shorthand
+// can shorten each entry to `.requestMethod`, `.responseStatusCode`, …
+span.addAttributes(OTel.attributesOf<Http>({
+  Http.responseBodySize: 1024,
+}));
+
+// Mix-and-match: each typed-enum map spreads into a `Map<OTelSemantic, Object>`,
+// which is exactly what `attributesFromSemanticMap` accepts. Useful when one
+// span carries attributes from several namespaces.
+span.addAttributes(OTel.attributesFromSemanticMap({
+  ...<Http, Object>{Http.requestMethod: 'POST'},
+  ...<Url, Object>{Url.urlFull: 'https://api.example.com/data'},
+  ...<ExampleAttribute, Object>{ExampleAttribute.processingStage: 'complete'},
+}));
+```
+
+### Span Events
+
+Events are time-stamped annotations on a span. Event names themselves are user-defined,
+but event attributes still benefit from typed enum keys:
+
+```dart
+span.addEvent(OTel.spanEventNow(
+  'cache.hit',
+  OTel.attributesFromSemanticMap({ExampleAttribute.cacheKey: 'user:123'}),
+));
+
+span.addEventNow('validation.passed');
+```
+
+### Span Links
+
+Links connect spans across traces — useful for batch processing or fan-out patterns:
+
+```dart
+final link = OTel.spanLink(
+  otherSpan.spanContext,
+  attributes: OTel.attributesFromSemanticMap({ExampleAttribute.linkType: 'triggers'}),
+);
+
+final span = tracer.startSpan('batch-process', links: [link]);
+```
+
+### SpanKind
+
+Classifies the relationship between a span and its remote counterpart:
+
+| SpanKind   | Description                                     | Example                           |
+|------------|-------------------------------------------------|-----------------------------------|
+| `internal` | Default; internal operation with no remote side | Business logic, local computation |
+| `server`   | Server handling an incoming request             | HTTP server endpoint              |
+| `client`   | Client making an outgoing request               | HTTP client call, DB query        |
+| `producer` | Producer enqueuing a message                    | Kafka producer, queue publisher   |
+| `consumer` | Consumer processing a message                   | Kafka consumer, queue subscriber  |
+
+### Samplers
+
+Samplers control which spans are recorded and exported. Configure via `OTel.initialize()` or per-`Tracer`.
+
+| Sampler               | Description                                      | Use Case                             |
+|-----------------------|--------------------------------------------------|--------------------------------------|
+| `AlwaysOnSampler`     | Samples every span (default)                     | Development, debugging               |
+| `AlwaysOffSampler`    | Never samples                                    | Disable tracing without code changes |
+| `TraceIdRatioSampler` | Samples by trace ID ratio (consistent per trace) | Production with consistent sampling  |
+| `ProbabilitySampler`  | Samples by random probability                    | Testing, non-critical sampling       |
+| `ParentBasedSampler`  | Respects parent span's sampling decision         | Distributed tracing across services  |
+| `RateLimitingSampler` | Limits sampled traces per second (token bucket)  | Controlling overhead                 |
+| `CountingSampler`     | Samples every Nth request                        | Periodic sampling                    |
+| `CompositeSampler`    | Combines samplers with AND/OR logic              | Complex sampling policies            |
+
+```dart
+// Sample 10% of traces consistently
+await OTel.initialize(
+  serviceName: 'my-service',
+  sampler: TraceIdRatioSampler(0.1),
+);
+
+// Respect parent decisions, sample 50% of new root traces
+await OTel.initialize(
+  serviceName: 'my-service',
+  sampler: ParentBasedSampler(TraceIdRatioSampler(0.5)),
+);
+
+// Rate-limit to 100 traces/second
+await OTel.initialize(
+  serviceName: 'my-service',
+  sampler: RateLimitingSampler(100),
+);
+```
+
+### Span Processors
+
+Processors handle span lifecycle and export:
+
+```dart
+// SimpleSpanProcessor — exports each span immediately (good for debugging)
+await OTel.initialize(
+  spanProcessor: SimpleSpanProcessor(ConsoleExporter()),
+);
+
+// BatchSpanProcessor — batches spans for efficient production export
+await OTel.initialize(
+  spanProcessor: BatchSpanProcessor(
+    OtlpGrpcSpanExporter(OtlpGrpcExporterConfig(endpoint: 'localhost:4317')),
+    BatchSpanProcessorConfig(
+      maxQueueSize: 2048,
+      scheduleDelay: Duration(milliseconds: 5000),
+      maxExportBatchSize: 512,
+    ),
+  ),
+);
+```
+
+### Span Exporters
+
+| Exporter               | Protocol      | Description                            |
+|------------------------|---------------|----------------------------------------|
+| `ConsoleExporter`      | stdout        | Prints spans to console for debugging  |
+| `OtlpGrpcSpanExporter` | gRPC          | Exports via OTLP/gRPC (production)     |
+| `OtlpHttpSpanExporter` | HTTP/protobuf | Exports via OTLP/HTTP (web-compatible) |
+
+```dart
+// Console (development)
+final exporter = ConsoleExporter();
+
+// OTLP gRPC (production)
+final exporter = OtlpGrpcSpanExporter(OtlpGrpcExporterConfig(
+  endpoint: 'otel-collector:4317',
+  headers: {'api-key': 'your-key'},
+  compression: true,
+));
+
+// OTLP HTTP (web-compatible)
+final exporter = OtlpHttpSpanExporter(OtlpHttpExporterConfig(
+  endpoint: 'https://otel-collector:4318',
+  headers: {'api-key': 'your-key'},
+));
+```
+
+### Context Propagation
+
+Propagate trace context across service boundaries using W3C Trace Context and Baggage:
+
+```dart
+final propagator = CompositePropagator<Map<String, String>, String>([
+  W3CTraceContextPropagator(),
+  W3CBaggagePropagator(),
+]);
+
+// Inject into outgoing HTTP headers
+final headers = <String, String>{};
+propagator.inject(Context.current, headers, MapTextMapSetter(headers));
+// Send headers with your HTTP request...
+
+// Extract from incoming HTTP headers
+final extractedContext = propagator.extract(
+  OTel.context(),
+  incomingHeaders,
+  MapTextMapGetter(incomingHeaders),
+);
+
+// Create a child span in the extracted context
+await extractedContext.run(() async {
+  final span = tracer.startSpan('handle-request');
+  // This span is part of the same distributed trace
+  span.end();
+});
+```
+
+Context also propagates across Dart async gaps and Isolates:
+
+```dart
+// Across Isolates
+final result = await Context.current.runIsolate(() async {
+  // Context is automatically restored in the new Isolate
+  final span = tracer.startSpan('isolate-work');
+  try {
+    return await computeInIsolate();
+  } finally {
+    span.end();
+  }
+});
+```
+
+## OpenTelemetry Metrics API
+
+The Metrics API in OpenTelemetry provides a way to record measurements about your application. These measurements can be exported later as metrics, allowing you to monitor and analyze the performance and behavior of your application.
+
+### Concepts
+
+- **MeterProvider**: Entry point to the metrics API, responsible for creating Meters
+- **Meter**: Used to create instruments for recording measurements
+- **Instrument**: Used to record measurements
+  - Synchronous instruments: record measurements at the moment of calling their APIs
+  - Asynchronous instruments: collect measurements on demand via callbacks
+
+### Instrument Types
+
+- **Counter**: Synchronous, monotonic increasing counter (can only go up)
+- **UpDownCounter**: Synchronous, non-monotonic counter (can go up or down)
+- **Histogram**: Synchronous, aggregable measurements with statistical distributions
+- **Gauge**: Synchronous, non-additive value that represents current state
+- **ObservableCounter**: Asynchronous version of Counter
+- **ObservableUpDownCounter**: Asynchronous version of UpDownCounter
+- **ObservableGauge**: Asynchronous version of Gauge
+
+### Usage Pattern
+
+Similar to the Tracing API, the metrics API follows a multi-layered factory pattern:
+
+1. **API Layer**: Defines interfaces and provides no-op implementations
+2. **SDK Layer**: Provides concrete implementations
+3. **Flutter Layer**: Adds UI-specific functionality
+
+The API follows the pattern of using factory methods for creation rather than constructors:
+
+```dart
+// Get a meter from the meter provider
+final meter = OTel.meterProvider().getMeter('component_name');
+
+// Create a counter instrument
+final counter = meter.createCounter('my_counter');
+
+// Record measurements
+counter.add(1, {'attribute_key': 'attribute_value'});
+```
+
+For asynchronous instruments:
+
+```dart
+// Create an observable counter
+final observableCounter = meter.createObservableCounter(
+  'my_observable_counter',
+  () => [Measurement(10, {'attribute_key': 'attribute_value'})],
+);
+```
+
+### Understanding Metric Types and When to Use Them
+
+| Instrument Type         | Use Case                                                        | Example                          |
+|-------------------------|-----------------------------------------------------------------|----------------------------------|
+| Counter                 | Count things that only increase                                 | Request count, completed tasks   |
+| UpDownCounter           | Count things that can increase or decrease                      | Active requests, queue size      |
+| Histogram               | Measure distributions                                           | Request durations, payload sizes |
+| Gauge                   | Record current value                                            | CPU usage, memory usage          |
+| ObservableCounter       | Count things that only increase, collected on demand            | Total CPU time                   |
+| ObservableUpDownCounter | Count things that can increase or decrease, collected on demand | Memory usage                     |
+| ObservableGauge         | Record current value, collected on demand                       | Current temperature              |
+
+## OpenTelemetry Logs API
+
+The Logs API provides structured logging that integrates with traces and metrics.  Unlike traditional logging
+frameworks, OpenTelemetry logs are first-class telemetry signals that carry context, severity, attributes,
+and can be correlated with the span that was active when the log was emitted.
+
+### Concepts
+
+- **LoggerProvider**: Entry point to the logs API, responsible for creating Loggers
+- **OTelLogger**: Used to emit log records
+- **LogRecord**: Represents a single log event with body, severity, attributes, timestamps, and trace context
+- **LogRecordProcessor**: Processes log records before export
+- **LogRecordExporter**: Exports log records to backends
+
+### Quick Start
+
+```dart
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+
+void main() async {
+  // Initialize with logs enabled (default)
+  await OTel.initialize(
+    serviceName: 'my-service',
+    enableLogs: true,  // Default is true
+  );
+
+  // Get a logger
+  final logger = OTel.logger('my-component');
+
+  // Emit log records
+  logger.emit(
+    body: 'Application started',
+    severityNumber: Severity.INFO,
+  );
+
+  // Log with attributes — prefer typed enum keys.
+  logger.emit(
+    body: 'User logged in',
+    severityNumber: Severity.INFO,
+    attributes: OTel.attributesFromSemanticMap({
+      User.userId: 'user123',
+      User.userRole: 'admin',
+    }),
+  );
+
+  // Log an error with exception.
+  try {
+    throw Exception('Something went wrong');
+  } catch (e, stackTrace) {
+    logger.emit(
+      body: 'Operation failed: $e',
+      severityNumber: Severity.ERROR,
+      attributes: OTel.attributesFromSemanticMap({
+        ExceptionResource.exceptionType: e.runtimeType.toString(),
+        ExceptionResource.exceptionStacktrace: stackTrace.toString(),
+      }),
+    );
+  }
+}
+```
+
+### Intercepting print() Calls
+
+Dartastic OpenTelemetry can automatically capture `print()` calls and convert them to OpenTelemetry logs:
+
+```dart
+await OTel.initialize(
+  serviceName: 'my-service',
+  logPrint: true,  // Enable print interception
+  logPrintLoggerName: 'dart.print',  // Optional custom logger name
+);
+
+// Use runWithPrintInterception to capture prints
+OTel.runWithPrintInterception(() {
+  print('This will be captured as an OTel log');
+  print('So will this');
+});
+
+// For async code
+await OTel.runWithPrintInterceptionAsync(() async {
+  print('Async print captured');
+  await someAsyncOperation();
+});
+```
+
+### Log Severity Levels
+
+| Severity                               | Use Case               |
+|----------------------------------------|------------------------|
+| `Severity.TRACE` / `Severity.TRACE2-4` | Fine-grained debugging |
+| `Severity.DEBUG` / `Severity.DEBUG2-4` | Debug information      |
+| `Severity.INFO` / `Severity.INFO2-4`   | General information    |
+| `Severity.WARN` / `Severity.WARN2-4`   | Warning conditions     |
+| `Severity.ERROR` / `Severity.ERROR2-4` | Error conditions       |
+| `Severity.FATAL` / `Severity.FATAL2-4` | Critical failures      |
+
+### Basic Logging
+
+```dart
+// Get a logger from the default provider
+final logger = OTel.loggerProvider().getLogger('my-service');
+
+// Emit a simple log. Prefer typed enum keys (User, ExampleAttribute,
+// Http, etc.) over raw strings.
+logger.emit(
+  severityNumber: Severity.INFO,
+  body: 'User successfully logged in.',
+  attributes: OTel.attributesFromSemanticMap({
+    User.userId: 'user-123',
+    ExampleAttribute.authMethod: 'oauth',
+  }),
+);
+
+// Warning log.
+logger.emit(
+  severityNumber: Severity.WARN,
+  body: 'Cache miss for requested key.',
+  attributes: OTel.attributesFromSemanticMap({
+    ExampleAttribute.cacheKey: 'profile_42',
+    ExampleAttribute.cacheRegion: 'us-east-1',
+  }),
+);
+
+// Error log.
+logger.emit(
+  severityNumber: Severity.ERROR,
+  body: 'Failed to connect to database.',
+  attributes: OTel.attributesFromSemanticMap({
+    Database.dbSystem: 'postgresql',
+    ErrorSemantics.errorType: 'ConnectionTimeout',
+  }),
+);
+```
+
+### Log-to-Trace Correlation
+
+Logs can be linked to the active span through `Context`, enabling powerful correlation in your backend:
+
+```dart
+final span = tracer.startSpan('process-order');
+try {
+  logger.emit(
+    severityNumber: Severity.INFO,
+    body: 'Processing order.',
+    context: Context.current, // Links this log to the active span
+    attributes: OTel.attributesFromSemanticMap({ExampleAttribute.orderId: 'order-789'}),
+  );
+  await processOrder();
+} finally {
+  span.end();
+}
+
+```
+### Custom Log Exporters
+
+```dart
+// Use a custom exporter
+final customExporter = OtlpHttpLogRecordExporter(
+  OtlpHttpLogRecordExporterConfig(
+    endpoint: 'https://my-collector:4318',
+    headers: {'Authorization': 'Bearer token'},
+  ),
+);
+
+await OTel.initialize(
+  serviceName: 'my-service',
+  logRecordExporter: customExporter,
+);
+```
+
+### Console Logging (Development)
+
+```dart
+// Use console exporter for development
+await OTel.initialize(
+  serviceName: 'my-service',
+  logRecordProcessor: SimpleLogRecordProcessor(ConsoleLogRecordExporter()),
+);
+```
+
+### Configuration via Environment Variables
+
+Logs can be configured via environment variables:
+
+```bash
+# Set logs exporter (otlp, console, or none)
+export OTEL_LOGS_EXPORTER=otlp
+
+# Set logs-specific endpoint
+export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://logs-collector:4318
+
+# Configure batch processor
+export OTEL_BLRP_SCHEDULE_DELAY=5000
+export OTEL_BLRP_MAX_QUEUE_SIZE=4096
+
+# Set log record limits
+export OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT=128
+```
+
+
+### Severity Levels
+
+OpenTelemetry defines a fine-grained 24-level severity scale, grouped into standard levels:
+
+| Level | Severities          | Use Case                             |
+|-------|---------------------|--------------------------------------|
+| TRACE | `TRACE`, `TRACE2-4` | Finest-grained debugging information |
+| DEBUG | `DEBUG`, `DEBUG2-4` | Debugging information                |
+| INFO  | `INFO`, `INFO2-4`   | Normal operational messages          |
+| WARN  | `WARN`, `WARN2-4`   | Warning conditions                   |
+| ERROR | `ERROR`, `ERROR2-4` | Error conditions                     |
+| FATAL | `FATAL`, `FATAL2-4` | System is unusable                   |
+
+Severity levels support comparison operators for filtering:
+
+```dart
+if (severity >= Severity.WARN) {
+  // Handle warning or above
+}
+```
+
+### Flexible Log Bodies
+
+The `body` parameter accepts diverse types — not just strings:
+
+```dart
+// String body
+logger.emit(body: 'Simple message.');
+
+// Structured body (Map)
+logger.emit(body: {'event': 'batch_complete', 'items': 42});
+
+// List body
+logger.emit(body: [
+  {'job': 'resize_images', 'status': 'ok'},
+  {'job': 'generate_thumbnails', 'status': 'failed'},
+]);
+```
+
+### Named Events
+
+Use `eventName` to categorize logs as discrete events:
+
+```dart
+logger.emit(
+  eventName: 'user_signup',
+  severityNumber: Severity.INFO,
+  body: 'New user registered.',
+  attributes: OTel.attributesFromMap({
+    'user.email_domain': 'example.com',
+    'signup.source': 'organic',
+  }),
+);
+```
+
+## Running with Environment Variables
+
+Dartastic OpenTelemetry supports for all standard OpenTelemetry environment variables as defined
+in the [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/).
+
+Environment variables provide a convenient way to configure OpenTelemetry without hardcoding values.
+All environment variable names are available as strongly-typed constants in the SDK for compile-time
 safety and IDE autocomplete. See `lib/src/environment/env_constants.dart` for a complete list.
 
 ### How It Works
@@ -112,11 +891,12 @@ Dart environment variables can be set in two ways:
    flutter build apk --dart-define=OTEL_SERVICE_NAME=my-service
    ```
 
-**Priority**: Compile-time constants (`--define` or `--dart-define`) take precedence over system environment variables. 
+**Priority**: Compile-time constants (`--define` or `--dart-define`) take precedence over system environment variables.
 Explicit parameters to `OTel.initialize()` override both.  Thus, POSIX env vars cannot override `--dart-define`s and
 neither POSIX env vars nor `--dart-define`s can override code.  This is sensible and reduces security vectors.
 
-**Web Support**: Flutter web and Dart web only support compile-time constants (`--define` or `--dart-define`), as browser environments don't have access to system environment variables.
+**Web Support**: Flutter web and Dart web only support compile-time constants (`--define` or `--dart-define`),
+as browser environments don't have access to system environment variables.
 
 ### Using Environment Variable Constants
 
@@ -146,6 +926,7 @@ Constants are defined for all 74 OpenTelemetry environment variables. See `lib/s
 | `otelServiceName`          | `OTEL_SERVICE_NAME`         | Sets the service name             | `my-dart-app`                           |
 | `otelResourceAttributes`   | `OTEL_RESOURCE_ATTRIBUTES`  | Additional resource attributes    | `environment=prod,region=us-west`       |
 | `otelLogLevel`             | `OTEL_LOG_LEVEL`            | SDK internal log level            | `INFO`, `DEBUG`, `WARN`, `ERROR`        |
+| `otelSdkDisabled`          | `OTEL_SDK_DISABLED`         | Global off-switch — when `true`, the SDK installs no span processors, metric readers, or log record processors (true no-op across all three signals, including explicit overrides) | `true` |
 
 #### OTLP Exporter Configuration
 
@@ -159,27 +940,54 @@ Constants are defined for all 74 OpenTelemetry environment variables. See `lib/s
 
 #### Signal-Specific Configuration
 
+Per the OTel spec, the default exporter for every signal is `otlp` (HTTP/protobuf to `http://localhost:4318`). Each `OTEL_*_EXPORTER` env var accepts `otlp` (default), `console` (prints to stdout — useful for local debugging), or `none` (skips processor/reader installation for that signal entirely). `OTEL_SDK_DISABLED=true` silences all three signals globally and overrides everything else.
+
 ##### Traces
 
-| Constant                              | Environment Variable                    | Description               |
-|---------------------------------------|-----------------------------------------|---------------------------|
-| `otelTracesExporter`                  | `OTEL_TRACES_EXPORTER`                  | Trace exporter type       |
-| `otelExporterOtlpTracesEndpoint`      | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`    | Traces-specific endpoint  |
-| `otelExporterOtlpTracesProtocol`      | `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`    | Traces-specific protocol  |
-| `otelExporterOtlpTracesHeaders`       | `OTEL_EXPORTER_OTLP_TRACES_HEADERS`     | Traces-specific headers   |
+| Constant                              | Environment Variable                    | Description                                              | Default |
+|---------------------------------------|-----------------------------------------|----------------------------------------------------------|---------|
+| `otelTracesExporter`                  | `OTEL_TRACES_EXPORTER`                  | Trace exporter type (`otlp`, `console`, `none`)          | `otlp`  |
+| `otelExporterOtlpTracesEndpoint`      | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`    | Traces-specific endpoint                                 |         |
+| `otelExporterOtlpTracesProtocol`      | `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`    | Traces-specific protocol                                 |         |
+| `otelExporterOtlpTracesHeaders`       | `OTEL_EXPORTER_OTLP_TRACES_HEADERS`     | Traces-specific headers                                  |         |
 
 ##### Metrics
 
-| Constant                              | Environment Variable                    | Description               |
-|---------------------------------------|-----------------------------------------|---------------------------|
-| `otelMetricsExporter`                 | `OTEL_METRICS_EXPORTER`                 | Metrics exporter type     |
-| `otelExporterOtlpMetricsEndpoint`     | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`   | Metrics-specific endpoint |
-| `otelExporterOtlpMetricsProtocol`     | `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`   | Metrics-specific protocol |
-| `otelExporterOtlpMetricsHeaders`      | `OTEL_EXPORTER_OTLP_METRICS_HEADERS`    | Metrics-specific headers  |
+| Constant                              | Environment Variable                    | Description                                              | Default |
+|---------------------------------------|-----------------------------------------|----------------------------------------------------------|---------|
+| `otelMetricsExporter`                 | `OTEL_METRICS_EXPORTER`                 | Metrics exporter type (`otlp`, `console`, `none`)        | `otlp`  |
+| `otelExporterOtlpMetricsEndpoint`     | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`   | Metrics-specific endpoint                                |         |
+| `otelExporterOtlpMetricsProtocol`     | `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`   | Metrics-specific protocol                                |         |
+| `otelExporterOtlpMetricsHeaders`      | `OTEL_EXPORTER_OTLP_METRICS_HEADERS`    | Metrics-specific headers                                 |         |
 
-For the complete list of all 74 supported environment variables with full documentation, see [`lib/src/environment/env_constants.dart`](lib/src/environment/env_constants.dart).
+##### Logs
 
-### Usage Examples
+| Constant                              | Environment Variable                    | Description                                              | Default |
+|---------------------------------------|-----------------------------------------|----------------------------------------------------------|---------|
+| `otelLogsExporter`                    | `OTEL_LOGS_EXPORTER`                    | Logs exporter type (`otlp`, `console`, `none`)           | `otlp`  |
+| `otelExporterOtlpLogsEndpoint`        | `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`      | Logs-specific endpoint                                   |         |
+| `otelExporterOtlpLogsProtocol`        | `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL`      | Logs-specific protocol                                   |         |
+| `otelExporterOtlpLogsHeaders`         | `OTEL_EXPORTER_OTLP_LOGS_HEADERS`       | Logs-specific headers                                    |         |
+
+##### Batch LogRecord Processor (BLRP)
+
+| Constant                         | Environment Variable              | Default  | Description                          |
+|----------------------------------|-----------------------------------|----------|--------------------------------------|
+| `otelBlrpScheduleDelay`          | `OTEL_BLRP_SCHEDULE_DELAY`        | `1000`   | Delay between exports (milliseconds) |
+| `otelBlrpExportTimeout`          | `OTEL_BLRP_EXPORT_TIMEOUT`        | `30000`  | Export timeout (milliseconds)        |
+| `otelBlrpMaxQueueSize`           | `OTEL_BLRP_MAX_QUEUE_SIZE`        | `2048`   | Maximum queue size                   |
+| `otelBlrpMaxExportBatchSize`     | `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` | `512`    | Maximum batch size per export        |
+
+##### LogRecord Limits
+
+| Constant                                  | Environment Variable                        | Default  | Description                        |
+|-------------------------------------------|---------------------------------------------|----------|------------------------------------|
+| `otelLogrecordAttributeValueLengthLimit`  | `OTEL_LOGRECORD_ATTRIBUTE_VALUE_LENGTH_LIMIT` | No limit | Maximum length of attribute values |
+| `otelLogrecordAttributeCountLimit`        | `OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT`       | `128`    | Maximum number of attributes       |
+
+For the complete list of all supported environment variables with full documentation, see [`lib/src/environment/env_constants.dart`](lib/src/environment/env_constants.dart).
+
+### Environment Usage Examples
 
 #### Dart Application with Environment Variables
 
@@ -451,11 +1259,11 @@ final observableCounter = meter.createObservableCounter(
 
 ## Integration with Dart/Flutter
 
-This API implementation follows the same pattern as the tracing API, where the creation of objects is managed through
-factory methods. This allows for a clear separation between API and SDK, and ensures that the metrics functionality
-can be used in a no-op mode when the SDK is not initialized.
+All three signal APIs (Traces, Metrics, Logs) follow the same multi-layered factory pattern:
 
-## Commercial Support
+1. **API Layer**: Defines interfaces and provides no-op implementations
+2. **SDK Layer**: Provides concrete implementations with export and processing
+3. **Flutter Layer**: Adds UI-specific functionality (route observation, app lifecycle, etc.)
 
 [Middleware.io](https://middleware.io) provides an OpenTelemetry Observability backend specifically built for Dart and Flutter applications. Features include:
 

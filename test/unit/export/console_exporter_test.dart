@@ -2,6 +2,10 @@
 // Tests the fix for: SimpleSpanProcessor.onEnd() is never called because Span.end()
 // doesn't notify span processors
 
+// Helper class methods are deliberately exhaustive even when a particular
+// test doesn't call every accessor.
+// ignore_for_file: unreachable_from_main
+
 import 'dart:async';
 
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
@@ -85,7 +89,8 @@ class TestableConsoleExporter extends SpanExporter {
       buffer.writeln('End Time: ${span.endTime!.toIso8601String()}');
       final duration = span.endTime!.difference(span.startTime);
       buffer.writeln(
-          'Duration: ${duration.inMicroseconds}μs (${duration.inMilliseconds}ms)');
+        'Duration: ${duration.inMicroseconds}μs (${duration.inMilliseconds}ms)',
+      );
     } else {
       buffer.writeln('End Time: (not ended)');
     }
@@ -182,7 +187,7 @@ void main() {
     tearDown(() async {
       console.stopCapture();
       await OTel.shutdown();
-      OTel.reset();
+      await OTel.reset();
     });
 
     test('span processor lifecycle events are called correctly', () async {
@@ -206,8 +211,10 @@ void main() {
 
       // Verify onNameUpdate was called
       expect(testProcessor.nameUpdatedSpans, hasLength(1));
-      expect(testProcessor.nameUpdatedSpans.first.name,
-          equals('updated-test-span'));
+      expect(
+        testProcessor.nameUpdatedSpans.first.name,
+        equals('updated-test-span'),
+      );
 
       // End span
       span.end();
@@ -319,32 +326,34 @@ void main() {
       expect(output, contains('ms)'));
     });
 
-    test('ConsoleExporter handles spans with no attributes or events',
-        () async {
-      await OTel.initialize(
-        spanProcessor: SimpleSpanProcessor(testableExporter),
-        sampler: const AlwaysOnSampler(),
-      );
+    test(
+      'ConsoleExporter handles spans with no attributes or events',
+      () async {
+        await OTel.initialize(
+          spanProcessor: SimpleSpanProcessor(testableExporter),
+          sampler: const AlwaysOnSampler(),
+        );
 
-      final tracer = OTel.tracer();
+        final tracer = OTel.tracer();
 
-      // Create minimal span
-      final span = tracer.startSpan('minimal-span');
-      span.end();
+        // Create minimal span
+        final span = tracer.startSpan('minimal-span');
+        span.end();
 
-      await testableExporter.forceFlush();
+        await testableExporter.forceFlush();
 
-      final output = testableExporter.allOutput;
+        final output = testableExporter.allOutput;
 
-      // Should have basic span info
-      expect(output, contains('Name: minimal-span'));
-      expect(output, contains('=== OpenTelemetry Span ==='));
-      expect(output, contains('=========================='));
+        // Should have basic span info
+        expect(output, contains('Name: minimal-span'));
+        expect(output, contains('=== OpenTelemetry Span ==='));
+        expect(output, contains('=========================='));
 
-      // Should not have attributes or events sections if empty
-      expect(output, isNot(contains('Attributes:')));
-      expect(output, isNot(contains('Events:')));
-    });
+        // Should not have attributes or events sections if empty
+        expect(output, isNot(contains('Attributes:')));
+        expect(output, isNot(contains('Events:')));
+      },
+    );
 
     test('ConsoleExporter handles nested spans correctly', () async {
       await OTel.initialize(
@@ -386,8 +395,10 @@ void main() {
         (line) => line.contains('Parent Span ID:'),
         orElse: () => '',
       );
-      expect(parentIdLine,
-          isNot(contains('(root span)'))); // Should have actual parent ID
+      expect(
+        parentIdLine,
+        isNot(contains('(root span)')),
+      ); // Should have actual parent ID
     });
 
     test('ConsoleExporter handles error spans correctly', () async {
@@ -448,7 +459,9 @@ void main() {
 
       // Should have 3 span headers
       expect(
-          '=== OpenTelemetry Span ==='.allMatches(allOutput).length, equals(3));
+        '=== OpenTelemetry Span ==='.allMatches(allOutput).length,
+        equals(3),
+      );
     });
 
     test('Debug logging shows processor notifications', () async {
@@ -470,7 +483,7 @@ void main() {
       final logs = console.allOutput;
       expect(logs, contains('onEnd'));
       expect(logs, contains('debug-test-span'));
-    }, skip: true); //This fails due to some logging setup oddities
+    });
 
     test('Real ConsoleExporter produces expected output format', () async {
       // Test with the actual ConsoleExporter to ensure it matches our testable version
@@ -479,30 +492,33 @@ void main() {
       // Capture regular print statements (ConsoleExporter uses print())
       final printOutputCapture = <String>[];
 
-      await runZoned(() async {
-        await OTel.initialize(
-          spanProcessor: SimpleSpanProcessor(realConsoleExporter),
-          sampler: const AlwaysOnSampler(),
-        );
+      await runZoned(
+        () async {
+          await OTel.initialize(
+            spanProcessor: SimpleSpanProcessor(realConsoleExporter),
+            sampler: const AlwaysOnSampler(),
+          );
 
-        final tracer = OTel.tracer();
-        final span = tracer.startSpan(
-          'real-console-test',
-          attributes: OTel.attributesFromMap({
-            'test.attribute': 'test-value',
-          }),
-        );
+          final tracer = OTel.tracer();
+          final span = tracer.startSpan(
+            'real-console-test',
+            attributes: OTel.attributesFromMap({
+              'test.attribute': 'test-value',
+            }),
+          );
 
-        span.addEventNow('test-event');
-        span.end();
+          span.addEventNow('test-event');
+          span.end();
 
-        await realConsoleExporter.forceFlush();
-      }, zoneSpecification: ZoneSpecification(
-        print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
-          printOutputCapture.add(line);
-          // Don't actually print during tests
+          await realConsoleExporter.forceFlush();
         },
-      ));
+        zoneSpecification: ZoneSpecification(
+          print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
+            printOutputCapture.add(line);
+            // Don't actually print during tests
+          },
+        ),
+      );
 
       final output = printOutputCapture.join('\n');
 

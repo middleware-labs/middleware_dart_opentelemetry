@@ -71,8 +71,11 @@ void main() {
       test('prevents changing trace ID via withSpanContext', () {
         final context = OTel.context().withSpanContext(spanContext1);
 
-        expect(() => context.withSpanContext(spanContext2), throwsArgumentError,
-            reason: 'Should not allow changing trace ID via withSpanContext');
+        expect(
+          () => context.withSpanContext(spanContext2),
+          throwsArgumentError,
+          reason: 'Should not allow changing trace ID via withSpanContext',
+        );
       });
 
       test('maintains context immutability when adding span contexts', () {
@@ -92,17 +95,25 @@ void main() {
         final context2 = context1.withSpanContext(spanContext1b);
 
         // Verify original context is unchanged
-        expect(context1.spanContext, equals(spanContext1),
-            reason: 'Original context should be unchanged');
+        expect(
+          context1.spanContext,
+          equals(spanContext1),
+          reason: 'Original context should be unchanged',
+        );
 
         // Verify new context has the new span context
-        expect(context2.spanContext, equals(spanContext1b),
-            reason: 'New context should have new span context');
+        expect(
+          context2.spanContext,
+          equals(spanContext1b),
+          reason: 'New context should have new span context',
+        );
 
         // Verify both contexts have same trace ID
-        expect(context1.spanContext?.traceId,
-            equals(context2.spanContext?.traceId),
-            reason: 'Both contexts should have same trace ID');
+        expect(
+          context1.spanContext?.traceId,
+          equals(context2.spanContext?.traceId),
+          reason: 'Both contexts should have same trace ID',
+        );
       });
     });
 
@@ -128,21 +139,23 @@ void main() {
         final entries = baggage.getAllEntries();
         entries.forEach((key, value) {
           final retrievedValue = retrievedBaggage!.getEntry(key);
-          expect(retrievedValue, isNotNull,
-              reason: 'Missing entry for key: $key');
-          expect(retrievedValue?.value, equals(value.value),
-              reason: 'Value mismatch for key: $key');
+          expect(
+            retrievedValue,
+            isNotNull,
+            reason: 'Missing entry for key: $key',
+          );
+          expect(
+            retrievedValue?.value,
+            equals(value.value),
+            reason: 'Value mismatch for key: $key',
+          );
         });
       });
 
       test('maintains baggage immutability', () {
-        final baggage1 = OTel.baggage({
-          'key1': OTel.baggageEntry('value1'),
-        });
+        final baggage1 = OTel.baggage({'key1': OTel.baggageEntry('value1')});
 
-        final baggage2 = OTel.baggage({
-          'key2': OTel.baggageEntry('value2'),
-        });
+        final baggage2 = OTel.baggage({'key2': OTel.baggageEntry('value2')});
 
         final context1 = OTel.context(baggage: baggage1);
 
@@ -155,12 +168,18 @@ void main() {
         print('Original baggage2: ${baggage2.getAllEntries()}');
 
         final retrievedBaggage1 = context1.baggage;
-        expect(retrievedBaggage1!.getEntry('key1')?.value, equals('value1'),
-            reason: 'Context1 lost its baggage value');
+        expect(
+          retrievedBaggage1!.getEntry('key1')?.value,
+          equals('value1'),
+          reason: 'Context1 lost its baggage value',
+        );
 
         final retrievedBaggage2 = context2.baggage;
-        expect(retrievedBaggage2!.getEntry('key2')?.value, equals('value2'),
-            reason: 'Context2 lost its baggage value');
+        expect(
+          retrievedBaggage2!.getEntry('key2')?.value,
+          equals('value2'),
+          reason: 'Context2 lost its baggage value',
+        );
       });
     });
 
@@ -183,34 +202,42 @@ void main() {
         );
       });
 
-      test('maintains separate contexts in parallel async operations',
-          () async {
-        final key = OTel.contextKey<String>('key');
-        final context1 = OTel.context().copyWith(key, 'value1');
-        final context2 = OTel.context().copyWith(key, 'value2');
+      test(
+        'maintains separate contexts in parallel async operations',
+        () async {
+          final key = OTel.contextKey<String>('key');
+          final context1 = OTel.context().copyWith(key, 'value1');
+          final context2 = OTel.context().copyWith(key, 'value2');
 
-        final future1 = context1.run(() async {
-          await Future<void>.delayed(Duration.zero);
-          return Context.current;
-        });
+          final future1 = context1.run(() async {
+            await Future<void>.delayed(Duration.zero);
+            return Context.current;
+          });
 
-        final future2 = context2.run(() async {
-          await Future<void>.delayed(Duration.zero);
-          return Context.current;
-        });
+          final future2 = context2.run(() async {
+            await Future<void>.delayed(Duration.zero);
+            return Context.current;
+          });
 
-        final results = await Future.wait([future1, future2]);
+          final results = await Future.wait([future1, future2]);
 
-        expect(results[0].get(key), equals('value1'),
-            reason: 'Context1 value was lost or modified');
-        expect(results[1].get(key), equals('value2'),
-            reason: 'Context2 value was lost or modified');
-      });
+          expect(
+            results[0].get(key),
+            equals('value1'),
+            reason: 'Context1 value was lost or modified',
+          );
+          expect(
+            results[1].get(key),
+            equals('value2'),
+            reason: 'Context2 value was lost or modified',
+          );
+        },
+      );
     });
 
     group('Context serialization', () {
       test('serializes and deserializes basic context values', () {
-        final key = OTel.contextKey<String>('test-key');
+        final key = OTel.contextKey<String>('test-key', isTransferable: true);
         final value = 'test-value';
         final originalContext = OTel.context().copyWith(key, value);
 
@@ -237,8 +264,10 @@ void main() {
         expect(deserializedSpanContext, isNotNull);
         expect(deserializedSpanContext?.traceId, equals(spanContext.traceId));
         expect(deserializedSpanContext?.spanId, equals(spanContext.spanId));
-        expect(deserializedSpanContext?.traceFlags,
-            equals(spanContext.traceFlags));
+        expect(
+          deserializedSpanContext?.traceFlags,
+          equals(spanContext.traceFlags),
+        );
         expect(
           deserializedSpanContext?.traceState.toString(),
           equals(spanContext.traceState.toString()),
@@ -260,15 +289,22 @@ void main() {
         final deserializedBaggage = deserializedContext.baggage;
         for (final entry in baggage.getAllEntries().entries) {
           final retrievedValue = deserializedBaggage!.getEntry(entry.key);
-          expect(retrievedValue, isNotNull,
-              reason:
-                  'Missing baggage entry after deserialization: ${entry.key}');
-          expect(retrievedValue?.value, equals(entry.value.value),
-              reason:
-                  'Wrong value after deserialization for key: ${entry.key}');
-          expect(retrievedValue?.metadata, equals(entry.value.metadata),
-              reason:
-                  'Wrong metadata after deserialization for key: ${entry.key}');
+          expect(
+            retrievedValue,
+            isNotNull,
+            reason: 'Missing baggage entry after deserialization: ${entry.key}',
+          );
+          expect(
+            retrievedValue?.value,
+            equals(entry.value.value),
+            reason: 'Wrong value after deserialization for key: ${entry.key}',
+          );
+          expect(
+            retrievedValue?.metadata,
+            equals(entry.value.metadata),
+            reason:
+                'Wrong metadata after deserialization for key: ${entry.key}',
+          );
         }
       });
 
@@ -285,13 +321,16 @@ void main() {
 
       test('serializes and deserializes multiple keys with the same name', () {
         // Create two keys with the same name but different uniqueIds
-        final key1 = OTel.contextKey<String>('same-name');
-        final key2 = OTel.contextKey<String>('same-name');
+        final key1 = OTel.contextKey<String>('same-name', isTransferable: true);
+        final key2 = OTel.contextKey<String>('same-name', isTransferable: true);
 
         // Verify they are different keys despite same name
-        expect(key1 == key2, isFalse,
-            reason:
-                'Keys with same name should be different objects due to different uniqueIds');
+        expect(
+          key1 == key2,
+          isFalse,
+          reason:
+              'Keys with same name should be different objects due to different uniqueIds',
+        );
 
         // Create context with both keys
         final originalContext =
@@ -313,13 +352,15 @@ void main() {
 
     group('Isolate context propagation', () {
       test('propagates context to new isolate', () async {
-        final key = OTel.contextKey<String>('test-key');
+        // Custom keys must opt in to cross-isolate transfer.
+        final key = OTel.contextKey<String>('test-key', isTransferable: true);
         final baggage = OTel.baggage({
           'baggage-key': OTel.baggageEntry('baggage-value'),
         });
 
-        final originalContext =
-            OTel.context(baggage: baggage).copyWith(key, 'test-value');
+        final originalContext = OTel.context(
+          baggage: baggage,
+        ).copyWith(key, 'test-value');
 
         await originalContext.run(() async {
           final result = await originalContext.runIsolate(() async {
@@ -331,15 +372,21 @@ void main() {
             };
           });
 
-          expect(result['test-key'], equals('test-value'),
-              reason: 'Context key not propagated to isolate');
-          expect(result['baggage-value'], equals('baggage-value'),
-              reason: 'Baggage not propagated to isolate');
+          expect(
+            result['test-key'],
+            equals('test-value'),
+            reason: 'Context key not propagated to isolate',
+          );
+          expect(
+            result['baggage-value'],
+            equals('baggage-value'),
+            reason: 'Baggage not propagated to isolate',
+          );
         });
       });
 
       test('maintains isolation between different isolates', () async {
-        final key = OTel.contextKey<String>('key');
+        final key = OTel.contextKey<String>('key', isTransferable: true);
         final context1 = OTel.context().copyWith(key, 'value1');
         final context2 = OTel.context().copyWith(key, 'value2');
 

@@ -4,15 +4,6 @@ import 'dart:async';
 
 import 'data/metric_data.dart';
 
-/// Defines the result of a metric export operation.
-enum ExportResult {
-  /// The export was successful.
-  success,
-
-  /// The export failed.
-  failure
-}
-
 /// MetricExporter is responsible for sending metrics to a backend.
 abstract class MetricExporter {
   /// Export a batch of metrics to the backend.
@@ -49,7 +40,7 @@ class ConsoleMetricExporter implements MetricExporter {
       print(
           '  - ${metric.name} (${metric.unit ?? "no unit"}): ${metric.description ?? ""}');
       for (final point in metric.points) {
-        final String value = point.valueAsString;
+        final value = point.valueAsString;
         print('    - Value: $value, Attributes: ${point.attributes}');
         if (point.hasExemplars) {
           print('      Exemplars: ${point.exemplars?.length}');

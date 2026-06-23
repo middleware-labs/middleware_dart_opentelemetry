@@ -1,79 +1,38 @@
 // Licensed under the Apache License, Version 2.0
 
+/// Re-exports the full OpenTelemetry API surface. The previous
+/// curated `show` list was dropped because the OTel semconv registry
+/// keeps growing — every new attribute / metric / event enum the API
+/// adds would otherwise need a parallel listing here. Re-exporting
+/// the whole package keeps the SDK shipping the entire spec surface
+/// for free.
 library;
 
-/// Re-export key OpenTelemetry API components for convenience
-export 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart'
-    show
-        AppLifecycleSemantics,
-        AppInfoSemantics,
-        Attributes,
-        AttributesExtension,
-        Baggage,
-        BaggageEntry,
-        ClientResource,
-        CloudResource,
-        ComputeUnitResource,
-        ComputeInstanceResource,
-        Context,
-        ContextKey,
-        DatabaseResource,
-        DeploymentResource,
-        DeviceResource,
-        DeviceSemantics,
-        EnvironmentResource,
-        ErrorSemantics,
-        ErrorResource,
-        ExceptionResource,
-        FeatureFlagResource,
-        FileResource,
-        GenAIResource,
-        GeneralResourceResource,
-        GraphQLResource,
-        HostResource,
-        HttpResource,
-        IdGenerator,
-        InstrumentationScope,
-        InteractionSemantics,
-        KubernetesResource,
-        LifecycleState,
-        Measurement,
-        MessagingResource,
-        NavigationSemantics,
-        NavigationAction,
-        NetworkResource,
-        NetworkSemantics,
-        OperatingSystemResource,
-        OTelLog,
-        OTelSemantic,
-        OTelSemanticExtension,
-        PerformanceSemantics,
-        ProcessResource,
-        RPCResource,
-        ServiceResource,
-        SessionViewSemantics,
-        SourceCodeResource,
-        SpanContext,
-        SpanEvent,
-        SpanLink,
-        SpanId,
-        SpanKind,
-        SpanStatusCode,
-        TelemetryDistroResource,
-        TelemetrySDKResource,
-        Timestamp,
-        TraceId,
-        TraceFlags,
-        TraceState,
-        UserSemantics,
-        VersionResource;
+export 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 
 export 'src/context/propagation/w3c_baggage_propagator.dart';
 export 'src/environment/env_constants.dart';
 export 'src/environment/environment_service.dart';
 export 'src/environment/otel_env.dart';
+export 'src/export/export_result.dart';
+export 'src/export/otlp_http_protocol.dart';
 export 'src/factory/otel_sdk_factory.dart';
 export 'src/instrumentation/network_instrumentation.dart';
+export 'src/logs/bridge/dart_log_bridge.dart';
+export 'src/logs/export/batch_log_record_processor.dart';
+export 'src/logs/export/console_log_record_exporter.dart';
+export 'src/logs/export/log_record_exporter.dart';
+export 'src/logs/export/logs_config.dart';
+export 'src/logs/export/otlp/http/otlp_http_log_record_exporter.dart';
+export 'src/logs/export/otlp/http/otlp_http_log_record_exporter_config.dart';
+export 'src/logs/export/otlp/log_record_transformer.dart';
+export 'src/logs/export/otlp/otlp_grpc_log_record_exporter.dart';
+export 'src/logs/export/otlp/otlp_grpc_log_record_exporter_config.dart';
+export 'src/logs/export/simple_log_record_processor.dart';
+export 'src/logs/log_record_processor.dart';
+export 'src/logs/logger.dart';
+export 'src/logs/logger_provider.dart';
+export 'src/logs/readable_log_record.dart';
 export 'src/metrics/data/exemplar.dart';
 export 'src/metrics/data/metric.dart';
 export 'src/metrics/data/metric_data.dart';
@@ -108,6 +67,7 @@ export 'src/otel.dart';
 export 'src/resource/resource.dart';
 export 'src/resource/resource_detector.dart';
 export 'src/resource/web_detector.dart';
+export 'src/trace/export/baggage_span_processor.dart';
 export 'src/trace/export/batch_span_processor.dart';
 export 'src/trace/export/composite_exporter.dart';
 export 'src/trace/export/console_exporter.dart';

@@ -19,10 +19,9 @@ class MetricTransformer {
     final attributes = resource.attributes;
 
     resourceProto.attributes.addAll(
-      attributes
-          .toMap()
-          .entries
-          .map((entry) => _createKeyValue(entry.key, entry.value.value)),
+      attributes.toMap().entries.map(
+            (entry) => _createKeyValue(entry.key, entry.value.value),
+          ),
     );
 
     return resourceProto;
@@ -43,7 +42,8 @@ class MetricTransformer {
 
     if (OTelLog.isLogMetrics()) {
       OTelLog.logMetric(
-          'MetricTransformer: Transforming metric ${metric.name} of type ${metric.type}');
+        'MetricTransformer: Transforming metric ${metric.name} of type ${metric.type}',
+      );
     }
 
     // Set data based on metric type
@@ -111,7 +111,8 @@ class MetricTransformer {
 
   /// Creates a histogram data point for the given MetricPoint.
   static proto.HistogramDataPoint _createHistogramDataPoint(
-      MetricPoint<dynamic> point) {
+    MetricPoint<dynamic> point,
+  ) {
     final histogramValue = point.value as HistogramValue;
 
     // Prepare attributes
@@ -153,7 +154,8 @@ class MetricTransformer {
 
   /// Creates a number data point for the given MetricPoint.
   static proto.NumberDataPoint _createNumberDataPoint(
-      MetricPoint<dynamic> point) {
+    MetricPoint<dynamic> point,
+  ) {
     // Prepare attributes
     final attributes = point.attributes.toMap();
     final attributeKeyValues = attributes.entries

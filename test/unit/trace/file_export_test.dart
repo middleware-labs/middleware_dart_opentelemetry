@@ -1,7 +1,5 @@
 // Licensed under the Apache License, Version 2.0
 
-// ignore_for_file: strict_raw_type
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -58,19 +56,16 @@ void main() {
       print('Starting test: withSpan executes code with an active span');
 
       // Arrange
-      String result = '';
+      var result = '';
       final span = tracer.startSpan('test-with-span');
 
       // Act
-      tracer.withSpan(
-        span,
-        () {
-          final currentSpan = tracer.currentSpan;
-          print('Current span in withSpan: ${currentSpan?.name}');
-          result = currentSpan?.name ?? 'No active span';
-          return result;
-        },
-      );
+      tracer.withSpan(span, () {
+        final currentSpan = tracer.currentSpan;
+        print('Current span in withSpan: ${currentSpan?.name}');
+        result = currentSpan?.name ?? 'No active span';
+        return result;
+      });
 
       // Must manually end the span - this is key for it to be exported
       span.end();
@@ -84,7 +79,7 @@ void main() {
       await Future<void>.delayed(const Duration(seconds: 1));
 
       // Verify the span was written to file
-      final File file = File(outputPath);
+      final file = File(outputPath);
       if (!file.existsSync()) {
         fail('Expected output file does not exist');
       }
@@ -101,21 +96,28 @@ void main() {
         final dynamic parsedContent = jsonDecode(fileContent);
         if (parsedContent is! List) {
           fail(
-              'Expected JSON content to be a List but got ${parsedContent.runtimeType}');
+            'Expected JSON content to be a List but got ${parsedContent.runtimeType}',
+          );
         }
 
         // Use step-by-step casting to avoid type cast errors
         final batches = parsedContent;
         print('Found ${batches.length} batches in file');
 
-        expect(batches, isNotEmpty,
-            reason: 'Expected at least one batch of spans');
+        expect(
+          batches,
+          isNotEmpty,
+          reason: 'Expected at least one batch of spans',
+        );
 
-        bool found = false;
+        var found = false;
         // Iterate through batches
         for (final batchData in batches) {
-          expect(batchData, isA<List>(),
-              reason: 'Expected batch to be a list of spans');
+          expect(
+            batchData,
+            isA<List>(),
+            reason: 'Expected batch to be a list of spans',
+          );
 
           final batch = batchData as List;
           // Iterate through spans in the batch
@@ -135,8 +137,11 @@ void main() {
           if (found) break;
         }
 
-        expect(found, isTrue,
-            reason: 'Expected to find span with name "test-with-span"');
+        expect(
+          found,
+          isTrue,
+          reason: 'Expected to find span with name "test-with-span"',
+        );
       } catch (e) {
         fail('Error parsing file content: $e');
       }
@@ -144,24 +149,22 @@ void main() {
 
     test('withSpanAsync executes async code with an active span', () async {
       print(
-          'Starting test: withSpanAsync executes async code with an active span');
+        'Starting test: withSpanAsync executes async code with an active span',
+      );
 
       // Arrange
-      String result = '';
+      var result = '';
       final span = tracer.startSpan('test-with-span-async');
 
       // Act
-      await tracer.withSpanAsync(
-        span,
-        () async {
-          // Simulate async work
-          await Future<void>.delayed(const Duration(milliseconds: 10));
-          final currentSpan = tracer.currentSpan;
-          print('Current span in withSpanAsync: ${currentSpan?.name}');
-          result = currentSpan?.name ?? 'No active span';
-          return result;
-        },
-      );
+      await tracer.withSpanAsync(span, () async {
+        // Simulate async work
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        final currentSpan = tracer.currentSpan;
+        print('Current span in withSpanAsync: ${currentSpan?.name}');
+        result = currentSpan?.name ?? 'No active span';
+        return result;
+      });
 
       // Must manually end the span - this is key for it to be exported
       span.end();
@@ -183,21 +186,28 @@ void main() {
         final dynamic parsedContent = jsonDecode(fileContent);
         if (parsedContent is! List) {
           fail(
-              'Expected JSON content to be a List but got ${parsedContent.runtimeType}');
+            'Expected JSON content to be a List but got ${parsedContent.runtimeType}',
+          );
         }
 
         // Use step-by-step casting to avoid type cast errors
         final batches = parsedContent;
         print('Found ${batches.length} batches in file');
 
-        expect(batches, isNotEmpty,
-            reason: 'Expected at least one batch of spans');
+        expect(
+          batches,
+          isNotEmpty,
+          reason: 'Expected at least one batch of spans',
+        );
 
-        bool found = false;
+        var found = false;
         // Iterate through batches
         for (final batchData in batches) {
-          expect(batchData, isA<List>(),
-              reason: 'Expected batch to be a list of spans');
+          expect(
+            batchData,
+            isA<List>(),
+            reason: 'Expected batch to be a list of spans',
+          );
 
           final batch = batchData as List;
           // Iterate through spans in the batch
@@ -217,25 +227,29 @@ void main() {
           if (found) break;
         }
 
-        expect(found, isTrue,
-            reason: 'Expected to find span with name "test-with-span-async"');
+        expect(
+          found,
+          isTrue,
+          reason: 'Expected to find span with name "test-with-span-async"',
+        );
       } catch (e) {
         fail('Error parsing file content: $e');
       }
     });
 
-    test('recordSpan creates and automatically ends a span', () async {
-      print('Starting test: recordSpan creates and automatically ends a span');
+    test('OTel.withSpan + caller-side end exports the span', () async {
+      print('Starting test: OTel.withSpan + caller-side end exports the span');
 
-      // Act
-      final result = tracer.recordSpan(
-        name: 'auto-record-span',
-        fn: () {
-          return 'success';
-        },
-      );
+      final span = tracer.startSpan('auto-record-span');
+      String? result;
+      try {
+        OTel.withSpan(span, () {
+          result = 'success';
+        });
+      } finally {
+        span.end();
+      }
 
-      // Assert
       expect(result, equals('success'));
 
       // Force flush to ensure span is exported
@@ -252,21 +266,28 @@ void main() {
         final dynamic parsedContent = jsonDecode(fileContent);
         if (parsedContent is! List) {
           fail(
-              'Expected JSON content to be a List but got ${parsedContent.runtimeType}');
+            'Expected JSON content to be a List but got ${parsedContent.runtimeType}',
+          );
         }
 
         // Use step-by-step casting to avoid type cast errors
         final batches = parsedContent;
         print('Found ${batches.length} batches in file');
 
-        expect(batches, isNotEmpty,
-            reason: 'Expected at least one batch of spans');
+        expect(
+          batches,
+          isNotEmpty,
+          reason: 'Expected at least one batch of spans',
+        );
 
-        bool found = false;
+        var found = false;
         // Iterate through batches
         for (final batchData in batches) {
-          expect(batchData, isA<List>(),
-              reason: 'Expected batch to be a list of spans');
+          expect(
+            batchData,
+            isA<List>(),
+            reason: 'Expected batch to be a list of spans',
+          );
 
           final batch = batchData as List;
           // Iterate through spans in the batch
@@ -286,8 +307,11 @@ void main() {
           if (found) break;
         }
 
-        expect(found, isTrue,
-            reason: 'Expected to find span with name "auto-record-span"');
+        expect(
+          found,
+          isTrue,
+          reason: 'Expected to find span with name "auto-record-span"',
+        );
       } catch (e) {
         fail('Error parsing file content: $e');
       }

@@ -1,7 +1,7 @@
 // Licensed under the Apache License, Version 2.0
 
 import 'dart:async';
-import 'dart:io';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -11,9 +11,11 @@ import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart
 import 'package:middleware_dart_opentelemetry/src/metrics/export/otlp/metric_transformer.dart';
 
 import '../../../../../proto/collector/metrics/v1/metrics_service.pb.dart';
+import '../../../../../proto/common/v1/common.pb.dart' as common_pb;
 import '../../../../../proto/metrics/v1/metrics.pb.dart' as metrics_pb;
-import '../../../../trace/export/otlp/certificate_utils.dart';
+import '../../../../trace/export/otlp/http/http_client_factory.dart';
 import '../../../../util/zip/gzip.dart';
+import '../metric_transformer.dart';
 
 /// An OpenTelemetry metric exporter that exports metrics using OTLP over HTTP/protobuf
 class OtlpHttpMetricExporter implements MetricExporter {
@@ -38,42 +40,15 @@ class OtlpHttpMetricExporter implements MetricExporter {
   }
 
   /// Creates an HTTP client with custom certificates if configured.
-  ///
-  /// This method creates an HttpClient with a SecurityContext configured
-  /// with any custom certificates specified in the exporter configuration.
-  http.Client _createHttpClient() {
-    // If no certificates are configured, use the default client
-    if (_config.certificate == null &&
-        _config.clientKey == null &&
-        _config.clientCertificate == null) {
-      return http.Client();
-    }
-
-    try {
-      final context = CertificateUtils.createSecurityContext(
+  /// Delegated to a platform-conditional factory: native gets an
+  /// `IOClient` wrapping an `HttpClient` with a custom `SecurityContext`;
+  /// web gets a `BrowserClient` (the browser handles TLS).
+  http.Client _createHttpClient() => createOtlpHttpClient(
+        exporterName: 'OtlpHttpMetricExporter',
         certificate: _config.certificate,
         clientKey: _config.clientKey,
         clientCertificate: _config.clientCertificate,
       );
-
-      if (context == null) {
-        return http.Client();
-      }
-
-      // Create an HttpClient with the custom SecurityContext
-      final httpClient = HttpClient(context: context);
-
-      // Wrap in IOClient for use with the http package
-      return IOClient(httpClient);
-    } catch (e) {
-      if (OTelLog.isError()) {
-        OTelLog.error(
-            'OtlpHttpMetricExporter: Failed to create HTTP client with certificates: $e');
-      }
-      // Fall back to default client on error
-      return http.Client();
-    }
-  }
 
   Duration _calculateJitteredDelay(int retries) {
     final baseMs = _config.baseDelay.inMilliseconds;
@@ -84,7 +59,7 @@ class OtlpHttpMetricExporter implements MetricExporter {
 
   String _getEndpointUrl() {
     // Ensure the endpoint ends with /v1/metrics
-    String endpoint = _config.endpoint;
+    var endpoint = _config.endpoint;
     if (!endpoint.endsWith('/v1/metrics')) {
       // Ensure there's no trailing slash before adding path
       if (endpoint.endsWith('/')) {
@@ -110,7 +85,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpMetricExporter: Beginning export of ${metrics.metrics.length} metrics');
+        'OtlpHttpMetricExporter: Beginning export of ${metrics.metrics.length} metrics',
+      );
     }
 
     try {
@@ -126,7 +102,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
         // Gracefully handle the case where shutdown interrupted the export
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpMetricExporter: Export was interrupted by shutdown, suppressing error');
+            'OtlpHttpMetricExporter: Export was interrupted by shutdown, suppressing error',
+          );
         }
         return false;
       } else {
@@ -143,7 +120,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpMetricExporter: Attempting to export ${metrics.metrics.length} metrics to ${_config.endpoint}');
+        'OtlpHttpMetricExporter: Attempting to export ${metrics.metrics.length} metrics to ${_config.endpoint}',
+      );
     }
 
     var attempts = 0;
@@ -158,7 +136,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
         if (wasShutdownDuringRetry && attempts > 0) {
           if (OTelLog.isDebug()) {
             OTelLog.debug(
-                'OtlpHttpMetricExporter: Export interrupted by shutdown');
+              'OtlpHttpMetricExporter: Export interrupted by shutdown',
+            );
           }
           throw StateError('Exporter was shut down during export');
         }
@@ -166,7 +145,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
         final success = await _tryExport(metrics);
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpMetricExporter: Successfully exported metrics');
+            'OtlpHttpMetricExporter: Successfully exported metrics',
+          );
         }
         return success;
       } on http.ClientException catch (e, stackTrace) {
@@ -179,13 +159,14 @@ class OtlpHttpMetricExporter implements MetricExporter {
         if (wasShutdownDuringRetry) {
           if (OTelLog.isError()) {
             OTelLog.error(
-                'OtlpHttpMetricExporter: Export interrupted by shutdown');
+              'OtlpHttpMetricExporter: Export interrupted by shutdown',
+            );
           }
           throw StateError('Exporter was shut down during export');
         }
 
         // Handle status code-based retries
-        bool shouldRetry = false;
+        var shouldRetry = false;
         if (e.message.contains('status code')) {
           for (final code in _retryableStatusCodes) {
             if (e.message.contains('status code $code')) {
@@ -198,7 +179,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
         if (!shouldRetry) {
           if (OTelLog.isError()) {
             OTelLog.error(
-                'OtlpHttpMetricExporter: Non-retryable HTTP error, stopping retry attempts');
+              'OtlpHttpMetricExporter: Non-retryable HTTP error, stopping retry attempts',
+            );
           }
           return false;
         }
@@ -206,7 +188,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
         if (attempts >= maxAttempts - 1) {
           if (OTelLog.isError()) {
             OTelLog.error(
-                'OtlpHttpMetricExporter: Max attempts reached ($attempts out of $maxAttempts), giving up');
+              'OtlpHttpMetricExporter: Max attempts reached ($attempts out of $maxAttempts), giving up',
+            );
           }
           return false;
         }
@@ -214,14 +197,16 @@ class OtlpHttpMetricExporter implements MetricExporter {
         final delay = _calculateJitteredDelay(attempts);
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpMetricExporter: Retrying export after ${delay.inMilliseconds}ms...');
+            'OtlpHttpMetricExporter: Retrying export after ${delay.inMilliseconds}ms...',
+          );
         }
         await Future<void>.delayed(delay);
         attempts++;
       } catch (e, stackTrace) {
         if (OTelLog.isError()) {
           OTelLog.error(
-              'OtlpHttpMetricExporter: Unexpected error during export: $e');
+            'OtlpHttpMetricExporter: Unexpected error during export: $e',
+          );
         }
         if (OTelLog.isError()) OTelLog.error('Stack trace: $stackTrace');
 
@@ -237,7 +222,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
         final delay = _calculateJitteredDelay(attempts);
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpMetricExporter: Retrying export after ${delay.inMilliseconds}ms...');
+            'OtlpHttpMetricExporter: Retrying export after ${delay.inMilliseconds}ms...',
+          );
         }
         await Future<void>.delayed(delay);
         attempts++;
@@ -254,12 +240,14 @@ class OtlpHttpMetricExporter implements MetricExporter {
 
     if (OTelLog.isLogMetrics()) {
       OTelLog.logMetric(
-          "Exporting metrics via HTTP: ${metrics.metrics.length} metrics");
+        'Exporting metrics via HTTP: ${metrics.metrics.length} metrics',
+      );
     }
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpMetricExporter: Preparing to export ${metrics.metrics.length} metrics');
+        'OtlpHttpMetricExporter: Preparing to export ${metrics.metrics.length} metrics',
+      );
     }
 
     if (OTelLog.isDebug()) {
@@ -272,8 +260,9 @@ class OtlpHttpMetricExporter implements MetricExporter {
 
     // Add resource
     if (metrics.resource != null) {
-      resourceMetrics.resource =
-          MetricTransformer.transformResource(metrics.resource!);
+      resourceMetrics.resource = MetricTransformer.transformResource(
+        metrics.resource!,
+      );
     } else {
       resourceMetrics.resource =
           MetricTransformer.transformResource(OTel.defaultResource!);
@@ -282,9 +271,12 @@ class OtlpHttpMetricExporter implements MetricExporter {
     // Create scope metrics
     final scopeMetrics = metrics_pb.ScopeMetrics();
 
-    // Add instrumentation scope
-    // scopeMetrics.scope.name = '@dart/middleware_opentelemetry';
-    // scopeMetrics.scope.version = '1.0.0';
+    // Add instrumentation scope - create a new InstrumentationScope
+    // rather than mutating the frozen default returned by scopeMetrics.scope
+    scopeMetrics.scope = common_pb.InstrumentationScope(
+      name: '@dart/middleware_opentelemetry',
+      version: '1.0.0',
+    );
 
     // Add metrics to scope
     for (final metric in metrics.metrics) {
@@ -301,17 +293,25 @@ class OtlpHttpMetricExporter implements MetricExporter {
       OTelLog.debug('OtlpHttpMetricExporter: Successfully transformed metrics');
     }
 
-    // Prepare headers
+    // Prepare headers + body. Wire format is selected by config.protocol —
+    // protobuf (default) or JSON via proto3-JSON mapping. See
+    // `OtlpHttpProtocol` for the conformance rationale.
     final headers = Map<String, String>.from(_config.headers);
-    headers['Content-Type'] = 'application/x-protobuf';
+    Uint8List messageBytes;
+    if (_config.protocol == OtlpHttpProtocol.httpJson) {
+      headers['Content-Type'] = 'application/json';
+      final jsonValue = request.toProto3Json();
+      messageBytes = Uint8List.fromList(utf8.encode(jsonEncode(jsonValue)));
+    } else {
+      headers['Content-Type'] = 'application/x-protobuf';
+      messageBytes = request.writeToBuffer();
+    }
 
     if (_config.compression) {
       headers['Content-Encoding'] = 'gzip';
     }
 
-    // Convert protobuf to bytes
-    final Uint8List messageBytes = request.writeToBuffer();
-    Uint8List bodyBytes = messageBytes;
+    var bodyBytes = messageBytes;
 
     // Apply gzip compression if configured
     if (_config.compression) {
@@ -324,30 +324,31 @@ class OtlpHttpMetricExporter implements MetricExporter {
     final endpointUrl = _getEndpointUrl();
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpMetricExporter: Sending export request to $endpointUrl');
+        'OtlpHttpMetricExporter: Sending export request to $endpointUrl',
+      );
     }
 
     try {
-      final http.Response response = await _client
-          .post(
-            Uri.parse(endpointUrl),
-            headers: headers,
-            body: bodyBytes,
-          )
+      final response = await _client
+          .post(Uri.parse(endpointUrl), headers: headers, body: bodyBytes)
           .timeout(_config.timeout);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpMetricExporter: Export request completed successfully');
+            'OtlpHttpMetricExporter: Export request completed successfully',
+          );
         }
         return true;
       } else {
-        final String errorMessage =
+        final errorMessage =
             'OtlpHttpMetricExporter: Export request failed with status code ${response.statusCode}';
         if (OTelLog.isError()) OTelLog.error(errorMessage);
         throw http.ClientException(errorMessage);
       }
+    } on http.ClientException {
+      // Let ClientException propagate to _export for retry handling
+      rethrow;
     } catch (e, stackTrace) {
       if (OTelLog.isError()) {
         OTelLog.error('OtlpHttpMetricExporter: Export request failed: $e');
@@ -365,7 +366,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
     if (_isShutdown) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'OtlpHttpMetricExporter: Exporter is already shut down, nothing to flush');
+          'OtlpHttpMetricExporter: Exporter is already shut down, nothing to flush',
+        );
       }
       return true;
     }
@@ -374,13 +376,15 @@ class OtlpHttpMetricExporter implements MetricExporter {
     if (_pendingExports.isNotEmpty) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'OtlpHttpMetricExporter: Waiting for ${_pendingExports.length} pending exports to complete');
+          'OtlpHttpMetricExporter: Waiting for ${_pendingExports.length} pending exports to complete',
+        );
       }
       try {
         await Future.wait(_pendingExports);
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpMetricExporter: All pending exports completed');
+            'OtlpHttpMetricExporter: All pending exports completed',
+          );
         }
         return true;
       } catch (e) {
@@ -407,7 +411,8 @@ class OtlpHttpMetricExporter implements MetricExporter {
     }
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpMetricExporter: Shutting down - waiting for ${_pendingExports.length} pending exports');
+        'OtlpHttpMetricExporter: Shutting down - waiting for ${_pendingExports.length} pending exports',
+      );
     }
 
     // Set shutdown flag first
@@ -421,22 +426,27 @@ class OtlpHttpMetricExporter implements MetricExporter {
     if (pendingExportsCopy.isNotEmpty) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'OtlpHttpMetricExporter: Waiting for ${pendingExportsCopy.length} pending exports with timeout');
+          'OtlpHttpMetricExporter: Waiting for ${pendingExportsCopy.length} pending exports with timeout',
+        );
       }
       try {
         // Use a generous timeout but don't wait forever
-        await Future.wait(pendingExportsCopy)
-            .timeout(const Duration(seconds: 10), onTimeout: () {
-          if (OTelLog.isDebug()) {
-            OTelLog.debug(
-                'OtlpHttpMetricExporter: Timeout waiting for exports to complete');
-          }
-          return Future.value([]);
-        });
+        await Future.wait(pendingExportsCopy).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            if (OTelLog.isDebug()) {
+              OTelLog.debug(
+                'OtlpHttpMetricExporter: Timeout waiting for exports to complete',
+              );
+            }
+            return Future.value([]);
+          },
+        );
       } catch (e) {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpMetricExporter: Error during shutdown while waiting for exports: $e');
+            'OtlpHttpMetricExporter: Error during shutdown while waiting for exports: $e',
+          );
         }
         // Don't return false here - we still want to close the client
       }

@@ -22,44 +22,42 @@ void main() {
     });
 
     test('uses current context when no context provided', () {
-      // Set current context with a span
       final parentSpan = tracer.startSpan('parent');
       final parentContext = Context.current.withSpan(parentSpan);
-      Context.current = parentContext;
 
-      // Create span without explicit context
-      final span = tracer.startSpan('child');
+      // Activate the parent context for a synchronous scope. runSync attaches
+      // it via Zone, so any tracer.startSpan inside picks it up via
+      // Context.current without mutating the static field.
+      parentContext.runSync(() {
+        final span = tracer.startSpan('child');
 
-      // Verify parent relationship
-      expect(span.spanContext.traceId, equals(parentSpan.spanContext.traceId));
-      expect(
-          span.spanContext.parentSpanId, equals(parentSpan.spanContext.spanId));
-
-      // Reset current context
-      Context.current = Context.root;
+        expect(
+            span.spanContext.traceId, equals(parentSpan.spanContext.traceId));
+        expect(
+          span.spanContext.parentSpanId,
+          equals(parentSpan.spanContext.spanId),
+        );
+      });
     });
 
     test('uses provided context over current context', () {
-      // Create parent span and context
       final parentSpan1 = tracer.startSpan('parent1');
       final parentContext1 = Context.current.withSpan(parentSpan1);
 
       final parentSpan2 = tracer.startSpan('parent2');
       final parentContext2 = Context.current.withSpan(parentSpan2);
 
-      // Set current context to parent1
-      Context.current = parentContext1;
+      // Activate parentContext1 for the scope; pass parentContext2 explicitly.
+      parentContext1.runSync(() {
+        final span = tracer.startSpan('child', context: parentContext2);
 
-      // Create span with explicit parent2 context
-      final span = tracer.startSpan('child', context: parentContext2);
-
-      // Verify parent relationship is with parent2
-      expect(span.spanContext.traceId, equals(parentSpan2.spanContext.traceId));
-      expect(span.spanContext.parentSpanId,
-          equals(parentSpan2.spanContext.spanId));
-
-      // Reset current context
-      Context.current = Context.root;
+        expect(
+            span.spanContext.traceId, equals(parentSpan2.spanContext.traceId));
+        expect(
+          span.spanContext.parentSpanId,
+          equals(parentSpan2.spanContext.spanId),
+        );
+      });
     });
 
     test('validates trace ID when using explicit span context', () {
@@ -77,14 +75,15 @@ void main() {
 
       // Attempt to create child span with different trace ID
       expect(
-          () => tracer.startSpan(
-                'child',
-                context: parentContext,
-                spanContext: spanContext,
-              ),
-          throwsArgumentError,
-          reason:
-              'Should not allow creating span with different trace ID than parent');
+        () => tracer.startSpan(
+          'child',
+          context: parentContext,
+          spanContext: spanContext,
+        ),
+        throwsArgumentError,
+        reason:
+            'Should not allow creating span with different trace ID than parent',
+      );
     });
 
     test('uses explicit spanContext trace ID while generating new span ID', () {
@@ -110,21 +109,31 @@ void main() {
       // Verify:
       // 1. Trace ID matches parent (required by spec)
       expect(
-          span.spanContext.traceId, equals(parentContext.spanContext!.traceId),
-          reason: 'Child should use parent trace ID');
+        span.spanContext.traceId,
+        equals(parentContext.spanContext!.traceId),
+        reason: 'Child should use parent trace ID',
+      );
 
       // 2. Span ID is new (not the same as explicitSpanContext)
-      expect(span.spanContext.spanId, isNot(equals(explicitSpanContext.spanId)),
-          reason: 'Child should get new span ID');
+      expect(
+        span.spanContext.spanId,
+        isNot(equals(explicitSpanContext.spanId)),
+        reason: 'Child should get new span ID',
+      );
 
       // 3. Parent span ID properly set
       expect(
-          span.spanContext.parentSpanId, equals(parentSpan.spanContext.spanId),
-          reason: 'Child should reference parent span ID');
+        span.spanContext.parentSpanId,
+        equals(parentSpan.spanContext.spanId),
+        reason: 'Child should reference parent span ID',
+      );
 
       // 4. All IDs are valid
-      expect(span.spanContext.isValid, isTrue,
-          reason: 'Child context should be valid');
+      expect(
+        span.spanContext.isValid,
+        isTrue,
+        reason: 'Child context should be valid',
+      );
     });
 
     test('uses bad explicit spanContext over context parent', () {
@@ -138,9 +147,11 @@ void main() {
         spanId: OTel.spanId(),
       );
 
-      expect(() => parentContext.withSpanContext(explicitSpanContext),
-          throwsArgumentError,
-          reason: 'Should not allow changing trace ID via withSpanContext');
+      expect(
+        () => parentContext.withSpanContext(explicitSpanContext),
+        throwsArgumentError,
+        reason: 'Should not allow changing trace ID via withSpanContext',
+      );
     });
 
     test('properly inherits parent trace ID in various scenarios', () {
@@ -149,22 +160,23 @@ void main() {
       final rootContext = Context.current.withSpan(rootSpan);
 
       // 1. Create child with parent context
-      final childViaContext = tracer.startSpan(
-        'child1',
-        context: rootContext,
+      final childViaContext = tracer.startSpan('child1', context: rootContext);
+      expect(
+        childViaContext.spanContext.traceId,
+        equals(rootSpan.spanContext.traceId),
+        reason: 'Child via context should inherit parent trace ID',
       );
-      expect(childViaContext.spanContext.traceId,
-          equals(rootSpan.spanContext.traceId),
-          reason: 'Child via context should inherit parent trace ID');
 
       // 2. Create child with explicit parent span
       final childViaParentSpan = tracer.startSpan(
         'child2',
         parentSpan: rootSpan,
       );
-      expect(childViaParentSpan.spanContext.traceId,
-          equals(rootSpan.spanContext.traceId),
-          reason: 'Child via parent span should inherit parent trace ID');
+      expect(
+        childViaParentSpan.spanContext.traceId,
+        equals(rootSpan.spanContext.traceId),
+        reason: 'Child via parent span should inherit parent trace ID',
+      );
 
       // 3. Create child with matching spanContext
       final matchingSpanContext = OTel.spanContext(
@@ -176,9 +188,11 @@ void main() {
         context: rootContext,
         spanContext: matchingSpanContext,
       );
-      expect(childViaSpanContext.spanContext.traceId,
-          equals(rootSpan.spanContext.traceId),
-          reason: 'Child via matching span context should maintain trace ID');
+      expect(
+        childViaSpanContext.spanContext.traceId,
+        equals(rootSpan.spanContext.traceId),
+        reason: 'Child via matching span context should maintain trace ID',
+      );
     });
 
     test('throws when parentSpan and spanContext have different spanIds', () {
@@ -213,10 +227,14 @@ void main() {
       );
 
       // Verify explicit parent was used
-      expect(span.spanContext.traceId,
-          equals(explicitParentSpan.spanContext.traceId));
-      expect(span.spanContext.parentSpanId,
-          equals(explicitParentSpan.spanContext.spanId));
+      expect(
+        span.spanContext.traceId,
+        equals(explicitParentSpan.spanContext.traceId),
+      );
+      expect(
+        span.spanContext.parentSpanId,
+        equals(explicitParentSpan.spanContext.spanId),
+      );
     });
 
     test('creates root span when no parent context available', () {
@@ -225,7 +243,9 @@ void main() {
       // Verify the parent span ID is zero-filled (invalid)
       expect(span.spanContext.parentSpanId, isNotNull);
       expect(
-          span.spanContext.parentSpanId.toString(), equals('0000000000000000'));
+        span.spanContext.parentSpanId.toString(),
+        equals('0000000000000000'),
+      );
       expect(span.spanContext.traceId.isValid, isTrue);
       expect(span.spanContext.spanId.isValid, isTrue);
     });

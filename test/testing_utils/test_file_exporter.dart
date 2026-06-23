@@ -38,7 +38,8 @@ class TestFileExporter implements SpanExporter {
     if (_isShutdown) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'TestFileExporter: Cannot export - exporter is shut down');
+          'TestFileExporter: Cannot export - exporter is shut down',
+        );
       }
       print('TestFileExporter: Cannot export - exporter is shut down');
       throw StateError('Exporter is shutdown');
@@ -55,7 +56,8 @@ class TestFileExporter implements SpanExporter {
     // Debug information about the spans
     for (var span in spans) {
       print(
-          'TestFileExporter: Exporting span ${span.name} with ID ${span.spanContext.spanId} and traceID ${span.spanContext.traceId}');
+        'TestFileExporter: Exporting span ${span.name} with ID ${span.spanContext.spanId} and traceID ${span.spanContext.traceId}',
+      );
       print('TestFileExporter:   isRecording: ${span.isRecording}');
       print('TestFileExporter:   isEnded: ${span.isEnded}');
       print('TestFileExporter:   status: ${span.status}');
@@ -64,7 +66,8 @@ class TestFileExporter implements SpanExporter {
       // Check if the span is properly ended
       if (!span.isEnded) {
         print(
-            'TestFileExporter: WARNING - Span ${span.name} is not properly ended, which may cause export issues');
+          'TestFileExporter: WARNING - Span ${span.name} is not properly ended, which may cause export issues',
+        );
       }
     }
 
@@ -73,18 +76,20 @@ class TestFileExporter implements SpanExporter {
 
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'TestFileExporter: Exporting ${spans.length} spans to $_filePath');
+          'TestFileExporter: Exporting ${spans.length} spans to $_filePath',
+        );
       }
 
       // Convert spans to simplified JSON format - handle attributes safely
       final jsonSpans = spans.map((span) {
-        Map<String, dynamic> attributesJson = {};
+        var attributesJson = <String, dynamic>{};
         try {
           // Try to get the attributes and convert to JSON
           attributesJson = span.attributes.toJson();
         } catch (e) {
           print(
-              'TestFileExporter: Warning - could not serialize attributes for span ${span.name}: $e');
+            'TestFileExporter: Warning - could not serialize attributes for span ${span.name}: $e',
+          );
           // Fallback to empty attributes
           attributesJson = {};
         }
@@ -106,7 +111,7 @@ class TestFileExporter implements SpanExporter {
       _allBatches.add(jsonSpans);
 
       // Write all batches to file (overwriting previous content)
-      final String newContent = jsonEncode(_allBatches);
+      final newContent = jsonEncode(_allBatches);
 
       // Use synchronous operations to guarantee it gets written immediately
       file.writeAsStringSync(newContent, flush: true);
@@ -114,22 +119,26 @@ class TestFileExporter implements SpanExporter {
       // Verify file was written
       final fileSize = file.lengthSync();
       print(
-          'TestFileExporter: Wrote ${newContent.length} characters to file. File size is now $fileSize bytes');
+        'TestFileExporter: Wrote ${newContent.length} characters to file. File size is now $fileSize bytes',
+      );
       print('TestFileExporter: File absolute path: ${file.absolute.path}');
 
       // Read back to verify it was written correctly
       final readBack = file.readAsStringSync();
       if (readBack.isNotEmpty && readBack.contains(spans.first.name)) {
         print(
-            'TestFileExporter: Verified file write was successful - found span name in file');
+          'TestFileExporter: Verified file write was successful - found span name in file',
+        );
       } else {
         print(
-            'TestFileExporter: WARNING - File write verification failed. Content: $readBack');
+          'TestFileExporter: WARNING - File write verification failed. Content: $readBack',
+        );
       }
 
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'TestFileExporter: Successfully exported ${spans.length} spans');
+          'TestFileExporter: Successfully exported ${spans.length} spans',
+        );
       }
     } catch (e, stackTrace) {
       if (OTelLog.isError()) {

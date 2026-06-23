@@ -1,7 +1,7 @@
 // Licensed under the Apache License, Version 2.0
 
 import 'dart:async';
-import 'dart:io';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -11,11 +11,13 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 
+import '../../../../export/otlp_http_protocol.dart';
 import '../../../../util/zip/gzip.dart';
+import '../../../span.dart';
 import '../../../span_logger.dart';
 import '../../span_exporter.dart';
-import '../certificate_utils.dart';
 import '../span_transformer.dart';
+import 'http_client_factory.dart';
 import 'otlp_http_span_exporter_config.dart';
 
 /// An OpenTelemetry span exporter that exports spans using OTLP over HTTP/protobuf
@@ -39,9 +41,11 @@ class OtlpHttpSpanExporter implements SpanExporter {
       : _config = config ?? OtlpHttpExporterConfig() {
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpSpanExporter: Created with endpoint: ${_config.endpoint}');
+        'OtlpHttpSpanExporter: Created with endpoint: ${_config.endpoint}',
+      );
       OTelLog.debug(
-          'OtlpHttpSpanExporter: Configured headers count: ${_config.headers.length}');
+        'OtlpHttpSpanExporter: Configured headers count: ${_config.headers.length}',
+      );
       _config.headers.forEach((key, value) {
         if (key.toLowerCase() == 'authorization') {
           OTelLog.debug('  $key: [REDACTED - length: ${value.length}]');
@@ -55,41 +59,15 @@ class OtlpHttpSpanExporter implements SpanExporter {
 
   /// Creates an HTTP client with custom certificates if configured.
   ///
-  /// This method creates an HttpClient with a SecurityContext configured
-  /// with any custom certificates specified in the exporter configuration.
-  http.Client _createHttpClient() {
-    // If no certificates are configured, use the default client
-    if (_config.certificate == null &&
-        _config.clientKey == null &&
-        _config.clientCertificate == null) {
-      return http.Client();
-    }
-
-    try {
-      final context = CertificateUtils.createSecurityContext(
+  /// Delegated to a platform-conditional factory: native gets an
+  /// `IOClient` wrapping an `HttpClient` with a custom `SecurityContext`;
+  /// web gets a `BrowserClient` (the browser handles TLS).
+  http.Client _createHttpClient() => createOtlpHttpClient(
+        exporterName: 'OtlpHttpSpanExporter',
         certificate: _config.certificate,
         clientKey: _config.clientKey,
         clientCertificate: _config.clientCertificate,
       );
-
-      if (context == null) {
-        return http.Client();
-      }
-
-      // Create an HttpClient with the custom SecurityContext
-      final httpClient = HttpClient(context: context);
-
-      // Wrap in IOClient for use with the http package
-      return IOClient(httpClient);
-    } catch (e) {
-      if (OTelLog.isError()) {
-        OTelLog.error(
-            'OtlpHttpSpanExporter: Failed to create HTTP client with certificates: $e');
-      }
-      // Fall back to default client on error
-      return http.Client();
-    }
-  }
 
   Duration _calculateJitteredDelay(int retries) {
     final baseMs = _config.baseDelay.inMilliseconds;
@@ -100,7 +78,7 @@ class OtlpHttpSpanExporter implements SpanExporter {
 
   String _getEndpointUrl() {
     // Ensure the endpoint ends with /v1/traces
-    String endpoint = _config.endpoint;
+    var endpoint = _config.endpoint;
     if (!endpoint.endsWith('/v1/traces')) {
       // Ensure there's no trailing slash before adding path
       if (endpoint.endsWith('/')) {
@@ -117,15 +95,17 @@ class OtlpHttpSpanExporter implements SpanExporter {
     }
 
     if (OTelLog.isLogSpans()) {
-      logSpans(spans, "Exporting spans via HTTP.");
+      logSpans(spans, 'Exporting spans via HTTP.');
     }
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpSpanExporter: Preparing to export ${spans.length} spans');
+        'OtlpHttpSpanExporter: Preparing to export ${spans.length} spans',
+      );
       for (var span in spans) {
         OTelLog.debug(
-            '  Span: ${span.name}, spanId: ${span.spanContext.spanId}, traceId: ${span.spanContext.traceId}');
+          '  Span: ${span.name}, spanId: ${span.spanContext.spanId}, traceId: ${span.spanContext.traceId}',
+        );
       }
     }
 
@@ -137,17 +117,28 @@ class OtlpHttpSpanExporter implements SpanExporter {
       OTelLog.debug('OtlpHttpSpanExporter: Successfully transformed spans');
     }
 
-    // Prepare headers
+    // Prepare headers + body. Wire format is selected by config.protocol:
+    // protobuf (default) writes the message as its compact binary encoding
+    // with Content-Type application/x-protobuf; JSON serializes via the
+    // standard proto3-JSON mapping (`toProto3Json`) with Content-Type
+    // application/json. The proto3-JSON mapping is the OTLP/JSON
+    // encoding the spec specifies; we don't hand-roll it.
     final headers = Map<String, String>.from(_config.headers);
-    headers['Content-Type'] = 'application/x-protobuf';
+    Uint8List messageBytes;
+    if (_config.protocol == OtlpHttpProtocol.httpJson) {
+      headers['Content-Type'] = 'application/json';
+      final jsonValue = request.toProto3Json();
+      messageBytes = Uint8List.fromList(utf8.encode(jsonEncode(jsonValue)));
+    } else {
+      headers['Content-Type'] = 'application/x-protobuf';
+      messageBytes = request.writeToBuffer();
+    }
 
     if (_config.compression) {
       headers['Content-Encoding'] = 'gzip';
     }
 
-    // Convert protobuf to bytes
-    final Uint8List messageBytes = request.writeToBuffer();
-    Uint8List bodyBytes = messageBytes;
+    var bodyBytes = messageBytes;
 
     // Apply gzip compression if configured
     if (_config.compression) {
@@ -160,7 +151,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
     final endpointUrl = _getEndpointUrl();
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpSpanExporter: Sending export request to $endpointUrl');
+        'OtlpHttpSpanExporter: Sending export request to $endpointUrl',
+      );
       OTelLog.debug('OtlpHttpSpanExporter: Request headers:');
       headers.forEach((key, value) {
         // Mask authorization header value for security, but show it exists
@@ -173,21 +165,18 @@ class OtlpHttpSpanExporter implements SpanExporter {
     }
 
     try {
-      final http.Response response = await _client
-          .post(
-            Uri.parse(endpointUrl),
-            headers: headers,
-            body: bodyBytes,
-          )
+      final response = await _client
+          .post(Uri.parse(endpointUrl), headers: headers, body: bodyBytes)
           .timeout(_config.timeout);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpSpanExporter: Export request completed successfully');
+            'OtlpHttpSpanExporter: Export request completed successfully',
+          );
         }
       } else {
-        final String errorMessage =
+        final errorMessage =
             'OtlpHttpSpanExporter: Export request failed with status code ${response.statusCode}';
         if (OTelLog.isError()) OTelLog.error(errorMessage);
         throw http.ClientException(errorMessage);
@@ -216,7 +205,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpSpanExporter: Beginning export of ${spans.length} spans');
+        'OtlpHttpSpanExporter: Beginning export of ${spans.length} spans',
+      );
     }
     final exportFuture = _export(spans);
 
@@ -234,7 +224,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
         // Gracefully handle the case where shutdown interrupted the export
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpSpanExporter: Export was interrupted by shutdown, suppressing error');
+            'OtlpHttpSpanExporter: Export was interrupted by shutdown, suppressing error',
+          );
         }
       } else {
         // Re-throw other errors
@@ -252,7 +243,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpSpanExporter: Attempting to export ${spans.length} spans to ${_config.endpoint}');
+        'OtlpHttpSpanExporter: Attempting to export ${spans.length} spans to ${_config.endpoint}',
+      );
     }
 
     var attempts = 0;
@@ -267,7 +259,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
         if (wasShutdownDuringRetry && attempts > 0) {
           if (OTelLog.isDebug()) {
             OTelLog.debug(
-                'OtlpHttpSpanExporter: Export interrupted by shutdown');
+              'OtlpHttpSpanExporter: Export interrupted by shutdown',
+            );
           }
           throw StateError('Exporter was shut down during export');
         }
@@ -287,13 +280,14 @@ class OtlpHttpSpanExporter implements SpanExporter {
         if (wasShutdownDuringRetry) {
           if (OTelLog.isError()) {
             OTelLog.error(
-                'OtlpHttpSpanExporter: Export interrupted by shutdown');
+              'OtlpHttpSpanExporter: Export interrupted by shutdown',
+            );
           }
           throw StateError('Exporter was shut down during export');
         }
 
         // Handle status code-based retries
-        bool shouldRetry = false;
+        var shouldRetry = false;
         if (e.message.contains('status code')) {
           for (final code in _retryableStatusCodes) {
             if (e.message.contains('status code $code')) {
@@ -306,7 +300,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
         if (!shouldRetry) {
           if (OTelLog.isError()) {
             OTelLog.error(
-                'OtlpHttpSpanExporter: Non-retryable HTTP error, stopping retry attempts');
+              'OtlpHttpSpanExporter: Non-retryable HTTP error, stopping retry attempts',
+            );
           }
           rethrow;
         }
@@ -314,7 +309,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
         if (attempts >= maxAttempts - 1) {
           if (OTelLog.isError()) {
             OTelLog.error(
-                'OtlpHttpSpanExporter: Max attempts reached ($attempts out of $maxAttempts), giving up');
+              'OtlpHttpSpanExporter: Max attempts reached ($attempts out of $maxAttempts), giving up',
+            );
           }
           rethrow;
         }
@@ -322,14 +318,16 @@ class OtlpHttpSpanExporter implements SpanExporter {
         final delay = _calculateJitteredDelay(attempts);
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpSpanExporter: Retrying export after ${delay.inMilliseconds}ms...');
+            'OtlpHttpSpanExporter: Retrying export after ${delay.inMilliseconds}ms...',
+          );
         }
         await Future<void>.delayed(delay);
         attempts++;
       } catch (e, stackTrace) {
         if (OTelLog.isError()) {
           OTelLog.error(
-              'OtlpHttpSpanExporter: Unexpected error during export: $e');
+            'OtlpHttpSpanExporter: Unexpected error during export: $e',
+          );
         }
         if (OTelLog.isError()) OTelLog.error('Stack trace: $stackTrace');
 
@@ -345,7 +343,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
         final delay = _calculateJitteredDelay(attempts);
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpSpanExporter: Retrying export after ${delay.inMilliseconds}ms...');
+            'OtlpHttpSpanExporter: Retrying export after ${delay.inMilliseconds}ms...',
+          );
         }
         await Future<void>.delayed(delay);
         attempts++;
@@ -362,7 +361,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
     if (_isShutdown) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'OtlpHttpSpanExporter: Exporter is already shut down, nothing to flush');
+          'OtlpHttpSpanExporter: Exporter is already shut down, nothing to flush',
+        );
       }
       return;
     }
@@ -371,7 +371,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
     if (_pendingExports.isNotEmpty) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'OtlpHttpSpanExporter: Waiting for ${_pendingExports.length} pending exports to complete');
+          'OtlpHttpSpanExporter: Waiting for ${_pendingExports.length} pending exports to complete',
+        );
       }
       try {
         await Future.wait(_pendingExports);
@@ -400,7 +401,8 @@ class OtlpHttpSpanExporter implements SpanExporter {
     }
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OtlpHttpSpanExporter: Shutting down - waiting for ${_pendingExports.length} pending exports');
+        'OtlpHttpSpanExporter: Shutting down - waiting for ${_pendingExports.length} pending exports',
+      );
     }
 
     // Set shutdown flag first
@@ -414,22 +416,27 @@ class OtlpHttpSpanExporter implements SpanExporter {
     if (pendingExportsCopy.isNotEmpty) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'OtlpHttpSpanExporter: Waiting for ${pendingExportsCopy.length} pending exports with timeout');
+          'OtlpHttpSpanExporter: Waiting for ${pendingExportsCopy.length} pending exports with timeout',
+        );
       }
       try {
         // Use a generous timeout but don't wait forever
-        await Future.wait(pendingExportsCopy)
-            .timeout(const Duration(seconds: 10), onTimeout: () {
-          if (OTelLog.isDebug()) {
-            OTelLog.debug(
-                'OtlpHttpSpanExporter: Timeout waiting for exports to complete');
-          }
-          return Future.value([]);
-        });
+        await Future.wait(pendingExportsCopy).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            if (OTelLog.isDebug()) {
+              OTelLog.debug(
+                'OtlpHttpSpanExporter: Timeout waiting for exports to complete',
+              );
+            }
+            return Future.value([]);
+          },
+        );
       } catch (e) {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'OtlpHttpSpanExporter: Error during shutdown while waiting for exports: $e');
+            'OtlpHttpSpanExporter: Error during shutdown while waiting for exports: $e',
+          );
         }
       }
     }

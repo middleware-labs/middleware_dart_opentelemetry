@@ -3,6 +3,8 @@
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 
+import 'span.dart';
+
 /// Interface for span processors that handle span lifecycle events.
 ///
 /// Span processors are invoked at key moments in a span's lifecycle, such as

@@ -58,7 +58,8 @@ class TestFileExporter implements SpanExporter {
       print('TestFileExporter: Cannot export - exporter is shut down');
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'TestFileExporter: Cannot export - exporter is shut down');
+          'TestFileExporter: Cannot export - exporter is shut down',
+        );
       }
       throw StateError('Exporter is shutdown');
     }
@@ -77,7 +78,8 @@ class TestFileExporter implements SpanExporter {
       print('TestFileExporter: Exporting ${spans.length} spans to $_filePath');
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'TestFileExporter: Exporting ${spans.length} spans to $_filePath');
+          'TestFileExporter: Exporting ${spans.length} spans to $_filePath',
+        );
       }
 
       // Convert spans to simplified JSON - avoiding properties that might not be accessible
@@ -102,7 +104,8 @@ class TestFileExporter implements SpanExporter {
       print('TestFileExporter: Successfully exported ${spans.length} spans');
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'TestFileExporter: Successfully exported ${spans.length} spans');
+          'TestFileExporter: Successfully exported ${spans.length} spans',
+        );
       }
     } catch (e, stackTrace) {
       print('TestFileExporter ERROR: Failed to export spans: $e');

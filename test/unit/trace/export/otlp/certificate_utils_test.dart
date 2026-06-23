@@ -1,11 +1,16 @@
 // Licensed under the Apache License, Version 2.0
 
+@TestOn('vm')
+library;
+
 import 'dart:io';
 
 import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/certificate_utils.dart';
 import 'package:test/test.dart';
 
-/// Unit tests for CertificateUtils
+/// Unit tests for CertificateUtils — VM-only because `createSecurityContext`
+/// is `dart:io`-bound. The web stub doesn't expose this method (browsers
+/// own TLS).
 void main() {
   group('CertificateUtils.createSecurityContext', () {
     test('returns null when no certificates are provided', () {
@@ -102,10 +107,7 @@ void main() {
 
   group('CertificateUtils.validateCertificates', () {
     test('succeeds when all parameters are null', () {
-      expect(
-        CertificateUtils.validateCertificates,
-        returnsNormally,
-      );
+      expect(CertificateUtils.validateCertificates, returnsNormally);
     });
 
     test('succeeds with test:// paths', () {
@@ -136,9 +138,8 @@ void main() {
 
       try {
         expect(
-          () => CertificateUtils.validateCertificates(
-            certificate: certFile.path,
-          ),
+          () =>
+              CertificateUtils.validateCertificates(certificate: certFile.path),
           returnsNormally,
         );
       } finally {
@@ -191,20 +192,22 @@ void main() {
       );
     });
 
-    test('throws ArgumentError when client certificate file does not exist',
-        () {
-      expect(
-        () => CertificateUtils.validateCertificates(
-          clientCertificate: '/nonexistent/path/client.pem',
-        ),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Client certificate file not found'),
+    test(
+      'throws ArgumentError when client certificate file does not exist',
+      () {
+        expect(
+          () => CertificateUtils.validateCertificates(
+            clientCertificate: '/nonexistent/path/client.pem',
           ),
-        ),
-      );
-    });
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Client certificate file not found'),
+            ),
+          ),
+        );
+      },
+    );
   });
 }

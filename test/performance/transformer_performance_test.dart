@@ -22,11 +22,11 @@ void main() {
     // The default tracer is set up with an instrumentation scope, for example "http".
     httpTracer = tracerProvider!.getTracer('http');
     // To simulate a different instrumentation scope, we create a separate tracer.
-    dbTracer = tracerProvider!.getTracer('database',
-        version: '1.0.0',
-        attributes: OTel.attributesFromMap(
-          {'db_type': 'postgres'},
-        ));
+    dbTracer = tracerProvider!.getTracer(
+      'database',
+      version: '1.0.0',
+      attributes: OTel.attributesFromMap({'db_type': 'postgres'}),
+    );
   });
 
   tearDown(() async {
@@ -42,7 +42,7 @@ void main() {
           attributes: OTel.attributesFromMap({
             'attr1': 'value1',
             'attr2': i,
-            'attr3': i % 2 == 0,
+            'attr3': i.isEven,
             'attr4': List.generate(5, (j) => 'value$j'),
           }),
         ),
@@ -53,10 +53,13 @@ void main() {
       stopwatch.stop();
 
       print(
-          'Transformation time for 10000 spans: ${stopwatch.elapsedMilliseconds}ms');
+        'Transformation time for 10000 spans: ${stopwatch.elapsedMilliseconds}ms',
+      );
       expect(stopwatch.elapsedMilliseconds, lessThan(5000));
-      expect(request.resourceSpans.first.scopeSpans.first.spans.length,
-          equals(10000));
+      expect(
+        request.resourceSpans.first.scopeSpans.first.spans.length,
+        equals(10000),
+      );
     });
 
     test('measures parallel transformation performance', () async {
@@ -126,9 +129,7 @@ void main() {
         ),
       );
 
-      final span = tracer!.startSpan(
-        'event-test',
-      );
+      final span = tracer!.startSpan('event-test');
 
       for (final event in events) {
         span.addEvent(event);
@@ -139,7 +140,8 @@ void main() {
       stopwatch.stop();
 
       print(
-          'Complex event transformation time: ${stopwatch.elapsedMilliseconds}ms');
+        'Complex event transformation time: ${stopwatch.elapsedMilliseconds}ms',
+      );
       expect(stopwatch.elapsedMilliseconds, lessThan(2000));
 
       final transformedSpan =

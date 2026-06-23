@@ -53,8 +53,10 @@ class NetworkProxyService extends proto.TraceServiceBase {
     return await _targetClient.export(request);
   }
 
-  void failNextRequests(int count,
-      {int errorCode = grpc.StatusCode.unavailable}) {
+  void failNextRequests(
+    int count, {
+    int errorCode = grpc.StatusCode.unavailable,
+  }) {
     _shouldFail = true;
     _failureCount = count;
     _curFailureCode = errorCode;
@@ -110,7 +112,8 @@ class NetworkProxy {
     _server = grpc.Server.create(services: [_service]);
     await _server!.serve(port: listenPort);
     print(
-        'Network proxy listening on port $listenPort -> $targetHost:$targetPort');
+      'Network proxy listening on port $listenPort -> $targetHost:$targetPort',
+    );
   }
 
   Future<void> stop() async {
@@ -133,8 +136,10 @@ class NetworkProxy {
     }
   }
 
-  void failNextRequests(int count,
-      {int errorCode = grpc.StatusCode.unavailable}) {
+  void failNextRequests(
+    int count, {
+    int errorCode = grpc.StatusCode.unavailable,
+  }) {
     _service.failNextRequests(count, errorCode: errorCode);
   }
 

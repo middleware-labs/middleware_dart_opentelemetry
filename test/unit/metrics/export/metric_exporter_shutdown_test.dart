@@ -41,8 +41,10 @@ void main() {
 
     setUp(() async {
       exporter = MockMetricExporter();
-      reader = PeriodicExportingMetricReader(exporter,
-          interval: const Duration(milliseconds: 100));
+      reader = PeriodicExportingMetricReader(
+        exporter,
+        interval: const Duration(milliseconds: 100),
+      );
 
       await OTel.reset();
       await OTel.initialize(

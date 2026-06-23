@@ -133,8 +133,8 @@ void main() {
         description: 'An observable integer counter',
       ) as ObservableCounter<int>;
 
-      bool callbackExecuted = false;
-      int capturedValue = 0;
+      var callbackExecuted = false;
+      var capturedValue = 0;
 
       // Add a callback
       counter.addCallback((result) {
@@ -169,8 +169,8 @@ void main() {
         description: 'An observable double counter',
       ) as ObservableCounter<double>;
 
-      bool callbackExecuted = false;
-      double capturedValue = 0.0;
+      var callbackExecuted = false;
+      var capturedValue = 0.0;
 
       // Add a callback
       counter.addCallback((result) {
@@ -200,9 +200,7 @@ void main() {
     test('Metrics with attributes have correct generic types', () {
       // Create counters with different generic types
       final intCounter = meter.createCounter<int>(
-        name: 'attr-int-counter',
-        unit: 'items',
-      ) as Counter<int>;
+          name: 'attr-int-counter', unit: 'items') as Counter<int>;
 
       final doubleCounter = meter.createCounter<double>(
         name: 'attr-double-counter',

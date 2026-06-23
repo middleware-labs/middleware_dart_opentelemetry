@@ -76,9 +76,10 @@ class ObservableUpDownCounter<T extends num>
 
     if (attributes == null) {
       // For no attributes, sum all points
-      value = _storage
-          .collectPoints()
-          .fold<num>(0, (sum, point) => sum + point.value);
+      value = _storage.collectPoints().fold<num>(
+            0,
+            (sum, point) => sum + point.value,
+          );
     } else {
       // For specific attributes, get that value
       value = _storage.getValue(attributes);
@@ -128,7 +129,7 @@ class ObservableUpDownCounter<T extends num>
         for (final measurement in observableResult.measurements) {
           // Type checking for the generic parameter
           final dynamic rawValue = measurement.value;
-          final num value = (rawValue is num)
+          final value = (rawValue is num)
               ? rawValue
               : num.tryParse(rawValue.toString()) ?? 0;
           final attributes =
@@ -159,7 +160,8 @@ class ObservableUpDownCounter<T extends num>
         }
       } catch (e) {
         print(
-            'Error collecting measurements from ObservableUpDownCounter callback: $e');
+          'Error collecting measurements from ObservableUpDownCounter callback: $e',
+        );
       }
     }
 
@@ -180,11 +182,17 @@ class ObservableUpDownCounter<T extends num>
   /// Collects metrics for the SDK metric export.
   ///
   /// This is called by the MeterProvider during metric collection.
+  /// Per the OTel spec, observable instruments must invoke their
+  /// registered callbacks on every collection cycle. Drive [collect]
+  /// first so the callback runs and storage reflects the latest
+  /// value before we read it.
   @override
   List<Metric> collectMetrics() {
     if (!enabled) {
       return [];
     }
+
+    collect();
 
     // Get the points from storage
     final points = collectPoints();
@@ -201,7 +209,7 @@ class ObservableUpDownCounter<T extends num>
         temporality: AggregationTemporality.cumulative,
         points: points,
         isMonotonic: false, // Up/down counters are non-monotonic
-      )
+      ),
     ];
   }
 

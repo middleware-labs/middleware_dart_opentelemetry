@@ -3,6 +3,8 @@
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/otel.dart';
 
+import '../otel.dart';
+
 /// Implementation of the W3C Trace Context specification for context propagation.
 ///
 /// This propagator handles the extraction and injection of trace context information
@@ -34,8 +36,11 @@ class W3CTraceContextPropagator
   static const _traceparentLength = 55; // 00-{32}-{16}-{2}
 
   @override
-  Context extract(Context context, Map<String, String> carrier,
-      TextMapGetter<String> getter) {
+  Context extract(
+    Context context,
+    Map<String, String> carrier,
+    TextMapGetter<String> getter,
+  ) {
     final traceparent = getter.get(_traceparentHeader);
 
     if (OTelLog.isDebug()) {
@@ -57,13 +62,14 @@ class W3CTraceContextPropagator
 
     // Extract tracestate if present
     final tracestate = getter.get(_tracestateHeader);
-    SpanContext finalSpanContext = spanContext;
+    var finalSpanContext = spanContext;
 
     if (tracestate != null && tracestate.isNotEmpty) {
       final tracestateMap = _parseTracestate(tracestate);
       if (tracestateMap.isNotEmpty) {
-        finalSpanContext =
-            spanContext.withTraceState(OTel.traceState(tracestateMap));
+        finalSpanContext = spanContext.withTraceState(
+          OTel.traceState(tracestateMap),
+        );
       }
     }
 
@@ -75,8 +81,11 @@ class W3CTraceContextPropagator
   }
 
   @override
-  void inject(Context context, Map<String, String> carrier,
-      TextMapSetter<String> setter) {
+  void inject(
+    Context context,
+    Map<String, String> carrier,
+    TextMapSetter<String> setter,
+  ) {
     final spanContext = context.spanContext;
 
     if (OTelLog.isDebug()) {
@@ -128,7 +137,8 @@ class W3CTraceContextPropagator
     if (traceparent.length != _traceparentLength) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'Invalid traceparent length: ${traceparent.length}, expected $_traceparentLength');
+          'Invalid traceparent length: ${traceparent.length}, expected $_traceparentLength',
+        );
       }
       return null;
     }
@@ -137,7 +147,8 @@ class W3CTraceContextPropagator
     if (parts.length != 4) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'Invalid traceparent format: expected 4 parts, got ${parts.length}');
+          'Invalid traceparent format: expected 4 parts, got ${parts.length}',
+        );
       }
       return null;
     }
@@ -161,7 +172,8 @@ class W3CTraceContextPropagator
     if (traceIdHex.length != 32) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'Invalid trace ID length: ${traceIdHex.length}, expected 32');
+          'Invalid trace ID length: ${traceIdHex.length}, expected 32',
+        );
       }
       return null;
     }
@@ -170,7 +182,8 @@ class W3CTraceContextPropagator
     if (spanIdHex.length != 16) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'Invalid span ID length: ${spanIdHex.length}, expected 16');
+          'Invalid span ID length: ${spanIdHex.length}, expected 16',
+        );
       }
       return null;
     }
@@ -179,7 +192,8 @@ class W3CTraceContextPropagator
     if (traceFlagsHex.length != 2) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'Invalid trace flags length: ${traceFlagsHex.length}, expected 2');
+          'Invalid trace flags length: ${traceFlagsHex.length}, expected 2',
+        );
       }
       return null;
     }

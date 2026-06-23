@@ -43,7 +43,10 @@ class OtlpGrpcMetricExporterConfig {
   }
 
   static void _validateCertificates(
-      String? cert, String? key, String? clientCert) {
+    String? cert,
+    String? key,
+    String? clientCert,
+  ) {
     CertificateUtils.validateCertificates(
       certificate: cert,
       clientKey: key,

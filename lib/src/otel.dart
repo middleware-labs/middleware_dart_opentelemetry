@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
@@ -37,6 +38,19 @@ import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart
 class OTel {
   static OTelSDKFactory? _otelFactory;
   static Sampler? _defaultSampler;
+  static TimeProvider? _defaultTimeProvider;
+
+  /// Whether print interception is enabled (set via initialize).
+  static bool _logPrintEnabled = false;
+
+  /// OTelLogger name for print interception (set via initialize).
+  static String _logPrintLoggerName = 'dart.print';
+
+  /// Lazily initialized DartLogBridge for print interception.
+  static DartLogBridge? _logBridge;
+
+  /// Lazily initialized zone specification for print interception.
+  static ZoneSpecification? _printInterceptionZoneSpec;
 
   /// Default resource for the SDK.
   ///
@@ -50,8 +64,12 @@ class OTel {
   /// Default service name used if none is provided.
   static const defaultServiceName = "@dart/middleware_opentelemetry";
 
-  /// Default OTEL endpoint
-  static const defaultEndpoint = "http://localhost:4317";
+  /// Default OTEL endpoint.
+  ///
+  /// Defaults to the OTLP/HTTP port (4318) since http/protobuf is the default
+  /// protocol per the OpenTelemetry specification. When using gRPC, override
+  /// this with port 4317.
+  static const defaultEndpoint = 'http://localhost:4318';
 
   /// Default tracer name used if none is provided.
   static const String _defaultTracerName = 'middleware';
@@ -60,7 +78,7 @@ class OTel {
   static String defaultTracerName = _defaultTracerName;
 
   /// Default tracer version.
-  static String defaultTracerVersion = "1.0.0";
+  static String defaultTracerVersion = '1.0.0';
 
   /// Initializes the OpenTelemetry SDK with the specified configuration.
   ///
@@ -71,7 +89,7 @@ class OTel {
   /// OTEL_CONSOLE_EXPORTER is set to true, a ConsoleExporter is added to the
   /// exports to print spans.
   ///
-  /// @param endpoint The endpoint URL for the OpenTelemetry collector (default: http://localhost:4317)
+  /// @param endpoint The endpoint URL for the OpenTelemetry collector (default: http://localhost:4318)
   /// @param secure Whether to use TLS for the connection (default: true)
   /// @param serviceName Name that uniquely identifies the service (default: "@dart/middleware_opentelemetry")
   /// @param serviceVersion Version of the service (defaults to the OTel spec version)
@@ -86,6 +104,17 @@ class OTel {
   /// @param enableMetrics Whether to enable metrics collection (default: true)
   /// @param Middleware Account Key for Middleware.io backend
   /// @param detectPlatformResources Whether to detect platform resources (default: true)
+  /// @param logPrint Whether to intercept print() calls and route them to OTel logs (default: false).
+  ///   When enabled, all print() calls within [runWithPrintInterception] will be captured
+  ///   as INFO level logs. Set to true to automatically bridge print statements to OpenTelemetry.
+  /// @param logPrintLoggerName OTelLogger name for print-intercepted logs (default: 'dart.print')
+  /// @param timeProvider Clock used for span start, end, and event timestamps.
+  ///   When omitted, defaults to the platform-aware `defaultTimeProvider`:
+  ///   `SystemTimeProvider` (`DateTime.now`, microsecond floor) on native;
+  ///   `WebTimeProvider` (`window.performance.now()` + `timeOrigin`, sub-
+  ///   millisecond) on Dart-on-JS web and Wasm — so web users pick up sub-
+  ///   ms span timing automatically with no opt-in. Pass a custom provider
+  ///   only to override the platform default, e.g. a fake clock in tests.
   /// @param oTelFactoryCreationFunction Factory function for creating OTelSDKFactory instances
   /// @return A Future that completes when initialization is done
   /// @throws StateError if called more than once
@@ -105,7 +134,13 @@ class OTel {
     MetricReader? metricReader,
     bool enableMetrics = true,
     String? middlewareAccountKey,
+    bool enableLogs = true,
+    LogRecordExporter? logRecordExporter,
+    LogRecordProcessor? logRecordProcessor,
     bool detectPlatformResources = true,
+    bool logPrint = false,
+    String logPrintLoggerName = 'dart.print',
+    TimeProvider? timeProvider,
     OTelFactoryCreationFunction? oTelFactoryCreationFunction =
         otelSDKFactoryFactoryFunction,
   }) async {
@@ -149,7 +184,8 @@ class OTel {
       }
       if (envServiceVersion != null) {
         OTelLog.debug(
-            'Using service version from environment: $serviceVersion');
+          'Using service version from environment: $serviceVersion',
+        );
       }
       if (envEndpoint != null) {
         OTelLog.debug('Using endpoint from environment: $endpoint');
@@ -182,12 +218,14 @@ class OTel {
     }
     if (OTelFactory.otelFactory != null) {
       throw StateError(
-          'OTelAPI can only be initialized once. If you need multiple endpoints or service names or versions create a named TracerProvider');
+        'OTelAPI can only be initialized once. If you need multiple endpoints or service names or versions create a named TracerProvider',
+      );
     }
 
     if (endpoint.isEmpty) {
       throw ArgumentError(
-          'endpoint must not be the empty string.'); //TODO validate url
+        'endpoint must not be the empty string.',
+      ); //TODO validate url
     }
     if (serviceName.isEmpty) {
       throw ArgumentError('serviceName must not be the empty string.');
@@ -199,6 +237,7 @@ class OTel {
         oTelFactoryCreationFunction ?? otelSDKFactoryFactoryFunction;
     // Initialize with default sampler
     _defaultSampler = sampler;
+    _defaultTimeProvider = timeProvider;
     OTel.defaultTracerName = tracerName ?? _defaultTracerName;
     OTel.defaultTracerVersion = tracerVersion ?? defaultTracerVersion;
     OTel.middlewareAccountKey = middlewareAccountKey;
@@ -213,7 +252,8 @@ class OTel {
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'OTel initialized with endpoint: $endpoint, service: $serviceName');
+        'OTel initialized with endpoint: $endpoint, service: $serviceName',
+      );
     }
 
     final serviceResourceAttributes = {
@@ -259,7 +299,15 @@ class OTel {
     // Set the final merged resource as default
     OTel.defaultResource = mergedResource;
 
-    if (spanProcessor == null) {
+    // OTEL_SDK_DISABLED=true is the spec-defined global off-switch: all three
+    // signals become no-ops. Honoring this here keeps signal-specific configs
+    // (`OTEL_*_EXPORTER`) from being ever consulted.
+    final sdkDisabled = OTelEnv.isSdkDisabled();
+    if (sdkDisabled && OTelLog.isDebug()) {
+      OTelLog.debug('OTel: OTEL_SDK_DISABLED=true, skipping all signal setup');
+    }
+
+    if (spanProcessor == null && !sdkDisabled) {
       // Determine which exporter to create based on environment or defaults
       final exporterType = OTelEnv.getExporter(signal: 'traces') ?? 'otlp';
 
@@ -291,15 +339,14 @@ class OTel {
               ),
             );
           } else {
-            // Default to http/protobuf
-            // For HTTP, adjust endpoint if it's the gRPC default
-            String httpEndpoint = endpoint;
-            if (endpoint == defaultEndpoint) {
-              httpEndpoint = 'http://localhost:4318';
-            }
+            // http/protobuf (default) or http/json (opt-in via env-var).
+            // Anything else falls back to http/protobuf — the spec-
+            // recommended default per `specification/protocol/exporter.md`.
+            final httpProtocol = otlpHttpProtocolFromString(protocol) ??
+                OtlpHttpProtocol.httpProtobuf;
             exporter = OtlpHttpSpanExporter(
               OtlpHttpExporterConfig(
-                endpoint: httpEndpoint,
+                endpoint: endpoint,
                 headers:
                     otlpConfigForExporter['headers'] as Map<String, String>? ??
                         {},
@@ -310,24 +357,24 @@ class OTel {
                 clientKey: otlpConfigForExporter['clientKey'] as String?,
                 clientCertificate:
                     otlpConfigForExporter['clientCertificate'] as String?,
+                protocol: httpProtocol,
               ),
             );
           }
         } else {
           // Fallback to gRPC for backward compatibility
           exporter = OtlpGrpcSpanExporter(
-            OtlpGrpcExporterConfig(
-              endpoint: endpoint,
-              insecure: !secure,
-            ),
+            OtlpGrpcExporterConfig(endpoint: endpoint, insecure: !secure),
           );
         }
 
         // Only add ConsoleExporter in debug mode or if explicitly requested
         final exporters = <SpanExporter>[exporter];
         if (OTelLog.isDebug() ||
-            const bool.fromEnvironment('OTEL_CONSOLE_EXPORTER',
-                defaultValue: false)) {
+            const bool.fromEnvironment(
+              'OTEL_CONSOLE_EXPORTER',
+              defaultValue: false,
+            )) {
           exporters.add(ConsoleExporter());
         }
 
@@ -343,13 +390,15 @@ class OTel {
       // If exporterType == 'none', spanProcessor remains null and no processor is added
     }
 
-    // Create and configure TracerProvider
-    if (spanProcessor != null) {
+    // Create and configure TracerProvider — but when OTEL_SDK_DISABLED=true,
+    // do not install any processor even if the caller passed one explicitly,
+    // so the SDK is a true no-op for traces.
+    if (spanProcessor != null && !sdkDisabled) {
       OTel.tracerProvider().addSpanProcessor(spanProcessor);
     }
 
     // Configure metrics if enabled
-    if (enableMetrics) {
+    if (enableMetrics && !sdkDisabled) {
       // If no explicit metric exporter is provided, create one with the same endpoint
       if (metricExporter == null && metricReader == null) {
         MetricsConfiguration.configureMeterProvider(
@@ -368,6 +417,44 @@ class OTel {
         );
       }
     }
+
+    // Configure logs if enabled
+    if (enableLogs && !sdkDisabled) {
+      LogsConfiguration.configureLoggerProvider(
+        endpoint: endpoint,
+        secure: secure,
+        logRecordExporter: logRecordExporter,
+        logRecordProcessor: logRecordProcessor,
+        resource: OTel.defaultResource,
+      );
+    }
+
+    // Store print interception configuration (lazily initialized when needed)
+    _logPrintEnabled = logPrint;
+    _logPrintLoggerName = logPrintLoggerName;
+
+    if (logPrint && OTelLog.isDebug()) {
+      OTelLog.debug(
+          'OTel: Print interception enabled with logger: $logPrintLoggerName');
+    }
+  }
+
+  /// Ensures the print interception bridge is initialized.
+  /// Called lazily when runWithPrintInterception is first used.
+  static void _ensurePrintInterceptionInitialized() {
+    if (_logBridge != null) return;
+
+    final logger = OTel.logger(_logPrintLoggerName);
+    _logBridge = DartLogBridge.install(
+      logger,
+      minimumSeverity: Severity.TRACE,
+    );
+    _printInterceptionZoneSpec = _logBridge!.createZoneSpecification();
+
+    if (OTelLog.isDebug()) {
+      OTelLog.debug(
+          'OTel: Print interception bridge initialized with logger: $_logPrintLoggerName');
+    }
   }
 
   /// Creates a Resource with the specified attributes and schema URL.
@@ -381,8 +468,10 @@ class OTel {
   /// @return A new Resource instance
   static Resource resource(Attributes? attributes, [String? schemaUrl]) {
     _getAndCacheOtelFactory();
-    return (_otelFactory as OTelSDKFactory)
-        .resource(attributes ?? OTel.attributes(), schemaUrl);
+    return (_otelFactory as OTelSDKFactory).resource(
+      attributes ?? OTel.attributes(),
+      schemaUrl,
+    );
   }
 
   /// Creates a new ContextKey with the given name.
@@ -392,10 +481,19 @@ class OTel {
   /// The name is for debugging purposes only.
   ///
   /// @param name The name of the context key (for debugging only)
+  /// @param isTransferable When `true`, values stored under this key transfer
+  ///   across isolate boundaries via `Context.runIsolate()`. Defaults to `false`
+  ///   (custom keys are local to their isolate). Built-in `Baggage` and
+  ///   `SpanContext` always transfer regardless of this flag.
   /// @return A new ContextKey instance
-  static ContextKey<T> contextKey<T>(String name) {
+  static ContextKey<T> contextKey<T>(String name,
+      {bool isTransferable = false}) {
     _getAndCacheOtelFactory();
-    return _otelFactory!.contextKey(name, ContextKey.generateContextKeyId());
+    return _otelFactory!.contextKey<T>(
+      name,
+      ContextKey.generateContextKeyId(),
+      isTransferable: isTransferable,
+    );
   }
 
   /// Creates a new Context with optional Baggage and SpanContext.
@@ -445,6 +543,9 @@ class OTel {
     }
 
     tracerProvider.sampler ??= _defaultSampler;
+    if (_defaultTimeProvider != null) {
+      tracerProvider.timeProvider = _defaultTimeProvider!;
+    }
     return tracerProvider;
   }
 
@@ -487,6 +588,9 @@ class OTel {
     final sdkTracerProvider = OTelAPI.addTracerProvider(name) as TracerProvider;
     sdkTracerProvider.resource = resource ?? defaultResource;
     sdkTracerProvider.sampler = sampler ?? _defaultSampler;
+    if (_defaultTimeProvider != null) {
+      sdkTracerProvider.timeProvider = _defaultTimeProvider!;
+    }
     return sdkTracerProvider;
   }
 
@@ -509,6 +613,24 @@ class OTel {
     );
   }
 
+  /// Activates [span] for the duration of [fn] (so `Context.current.span`
+  /// returns it inside `fn`) and records any thrown exception with
+  /// `SpanStatusCode.Error`. The caller is still responsible for
+  /// `span.end()` — typically in a `finally` block.
+  ///
+  /// Convenience over `OTel.tracer().withSpan(span, fn)` for callers
+  /// that don't already have a [Tracer] reference.
+  static T withSpan<T>(APISpan span, T Function() fn) =>
+      tracer().withSpan(span, fn);
+
+  /// Async variant of [withSpan]. Propagates the active span across
+  /// `await` boundaries via Zone-based context.
+  static Future<T> withSpanAsync<T>(
+    APISpan span,
+    Future<T> Function() fn,
+  ) =>
+      tracer().withSpanAsync(span, fn);
+
   /// Adds or replaces a named MeterProvider.
   ///
   /// This allows for creating multiple MeterProviders with different configurations,
@@ -529,10 +651,12 @@ class OTel {
     Resource? resource,
   }) {
     _getAndCacheOtelFactory();
-    final mp = _otelFactory!.addMeterProvider(name,
-        endpoint: endpoint,
-        serviceName: serviceName,
-        serviceVersion: serviceVersion) as MeterProvider;
+    final mp = _otelFactory!.addMeterProvider(
+      name,
+      endpoint: endpoint,
+      serviceName: serviceName,
+      serviceVersion: serviceVersion,
+    ) as MeterProvider;
     mp.resource = resource ?? defaultResource;
     return mp;
   }
@@ -552,8 +676,123 @@ class OTel {
   /// @return The default Meter instance
   static Meter meter([String? name]) {
     return meterProvider().getMeter(
-        name: name ?? defaultTracerName,
-        version: defaultTracerVersion) as Meter;
+      name: name ?? defaultTracerName,
+      version: defaultTracerVersion,
+    ) as Meter;
+  }
+
+  /// Gets a LoggerProvider for creating Loggers.
+  ///
+  /// If name is null, this returns the global default LoggerProvider, which shares
+  /// the endpoint, serviceName, serviceVersion and resource set in initialize().
+  /// If the name is not null, it returns a LoggerProvider for the name that was added
+  /// with addLoggerProvider.
+  ///
+  /// @param name Optional name of a specific LoggerProvider
+  /// @return The LoggerProvider instance
+  static LoggerProvider loggerProvider({String? name}) {
+    final logProvider = OTelAPI.loggerProvider(name) as LoggerProvider;
+    logProvider.resource ??= defaultResource;
+    return logProvider;
+  }
+
+  /// Adds or replaces a named LoggerProvider.
+  ///
+  /// This allows for creating multiple LoggerProviders with different configurations,
+  /// which can be useful for sending logs to different backends or with different
+  /// settings.
+  ///
+  /// @param name The name of the LoggerProvider
+  /// @param endpoint Optional custom endpoint URL
+  /// @param serviceName Optional custom service name
+  /// @param serviceVersion Optional custom service version
+  /// @param resource Optional custom resource
+  /// @return The newly created or replaced LoggerProvider
+  static LoggerProvider addLoggerProvider(
+    String name, {
+    String? endpoint,
+    String? serviceName,
+    String? serviceVersion,
+    Resource? resource,
+  }) {
+    _getAndCacheOtelFactory();
+    final lp = _otelFactory!.addLogProvider(name,
+        endpoint: endpoint,
+        serviceName: serviceName,
+        serviceVersion: serviceVersion) as LoggerProvider;
+    lp.resource = resource ?? defaultResource;
+    return lp;
+  }
+
+  /// Gets the default OTelLogger from the default LoggerProvider.
+  ///
+  /// This is a convenience method for getting a OTelLogger with the default configuration.
+  /// The endpoint, serviceName, serviceVersion and resource all flow down from
+  /// the OTel defaults set during initialization.
+  ///
+  /// @param name Optional custom name for the logger (defaults to defaultTracerName)
+  /// @return The default OTelLogger instance
+  static OTelLogger logger([String? name]) {
+    return loggerProvider().getLogger(
+      name ?? defaultTracerName,
+      version: defaultTracerVersion,
+    );
+  }
+
+  /// Whether print interception is enabled.
+  ///
+  /// Returns true if [initialize] was called with `logPrint: true`.
+  static bool get isLogPrintEnabled => _logPrintEnabled;
+
+  /// Gets the current DartLogBridge instance, if print interception is enabled.
+  ///
+  /// Returns null if print interception was not enabled during initialization.
+  static DartLogBridge? get logBridge => _logBridge;
+
+  /// Runs the given callback in a zone that intercepts print() calls.
+  ///
+  /// When [initialize] is called with `logPrint: true`, this method runs
+  /// the callback in a zone where all `print()` calls are captured and
+  /// routed to OpenTelemetry logs as INFO level messages.
+  ///
+  /// If print interception is not enabled, the callback is run directly
+  /// without any interception.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// await OTel.initialize(
+  ///   serviceName: 'my-service',
+  ///   logPrint: true,
+  /// );
+  ///
+  /// OTel.runWithPrintInterception(() {
+  ///   print('This will be captured as an OTel log');
+  /// });
+  /// ```
+  ///
+  /// @param callback The code to run with print interception
+  /// @return The result of the callback
+  static R runWithPrintInterception<R>(R Function() callback) {
+    if (!_logPrintEnabled) {
+      return callback();
+    }
+    _ensurePrintInterceptionInitialized();
+    return runZoned(callback, zoneSpecification: _printInterceptionZoneSpec);
+  }
+
+  /// Runs the given async callback in a zone that intercepts print() calls.
+  ///
+  /// This is the async version of [runWithPrintInterception].
+  ///
+  /// @param callback The async code to run with print interception
+  /// @return A Future containing the result of the callback
+  static Future<R> runWithPrintInterceptionAsync<R>(
+      Future<R> Function() callback) {
+    if (!_logPrintEnabled) {
+      return callback();
+    }
+    _ensurePrintInterceptionInitialized();
+    return runZoned(callback, zoneSpecification: _printInterceptionZoneSpec);
   }
 
   /// Creates a SpanContext with the specified parameters.
@@ -569,13 +808,14 @@ class OTel {
   /// @param traceState Trace state
   /// @param isRemote Whether this context was received from a remote source
   /// @return A new SpanContext instance
-  static SpanContext spanContext(
-      {TraceId? traceId,
-      SpanId? spanId,
-      SpanId? parentSpanId,
-      TraceFlags? traceFlags,
-      TraceState? traceState,
-      bool? isRemote}) {
+  static SpanContext spanContext({
+    TraceId? traceId,
+    SpanId? spanId,
+    SpanId? parentSpanId,
+    TraceFlags? traceFlags,
+    TraceState? traceState,
+    bool? isRemote,
+  }) {
     return OTelAPI.spanContext(
       traceId: traceId ?? OTel.traceId(),
       spanId: spanId ?? OTel.spanId(),
@@ -630,8 +870,11 @@ class OTel {
   /// @param attributes Optional attributes to associate with the event
   /// @param timestamp Optional timestamp for the event (defaults to null)
   /// @return A new SpanEvent instance
-  static SpanEvent spanEvent(String name,
-      [Attributes? attributes, DateTime? timestamp]) {
+  static SpanEvent spanEvent(
+    String name, [
+    Attributes? attributes,
+    DateTime? timestamp,
+  ]) {
     _getAndCacheOtelFactory();
     return _otelFactory!.spanEvent(name, attributes, timestamp);
   }
@@ -721,7 +964,9 @@ class OTel {
   /// @param value The list of string values
   /// @return A new Attribute instance
   static Attribute<List<String>> attributeStringList(
-      String name, List<String> value) {
+    String name,
+    List<String> value,
+  ) {
     _getAndCacheOtelFactory();
     return _otelFactory!.attributeStringList(name, value);
   }
@@ -732,7 +977,9 @@ class OTel {
   /// @param value The list of boolean values
   /// @return A new Attribute instance
   static Attribute<List<bool>> attributeBoolList(
-      String name, List<bool> value) {
+    String name,
+    List<bool> value,
+  ) {
     _getAndCacheOtelFactory();
     return _otelFactory!.attributeBoolList(name, value);
   }
@@ -753,7 +1000,9 @@ class OTel {
   /// @param value The list of double values
   /// @return A new Attribute instance
   static Attribute<List<double>> attributeDoubleList(
-      String name, List<double> value) {
+    String name,
+    List<double> value,
+  ) {
     _getAndCacheOtelFactory();
     return _otelFactory!.attributeDoubleList(name, value);
   }
@@ -798,6 +1047,71 @@ class OTel {
       return _otelFactory!.attributesFromMap(namedMap);
     }
   }
+
+  /// Creates an [Attributes] from a map keyed by [OTelSemantic] enum values
+  /// (e.g. `Http.requestMethod`). Each enum's `.key` is used as the
+  /// attribute name. Lets you write
+  ///
+  /// ```dart
+  /// OTel.attributesFromSemanticMap({
+  ///   Http.requestMethod: 'GET',
+  ///   Http.responseStatusCode: 200,
+  /// })
+  /// ```
+  ///
+  /// instead of `attributesFromMap({Http.requestMethod.key: 'GET', …})`.
+  /// Mixing enum types in one map is fine — the param is `Map<OTelSemantic, Object>`,
+  /// and every semconv enum implements `OTelSemantic`.
+  ///
+  /// Passthrough to [OTelAPI.attributesFromSemanticMap] for symmetry with
+  /// the [attributesFromMap] convenience.
+  static Attributes attributesFromSemanticMap(
+    Map<OTelSemantic, Object> semanticMap,
+  ) {
+    return OTelAPI.attributesFromSemanticMap(semanticMap);
+  }
+
+  /// Like [attributesFromSemanticMap], but parameterized on a single
+  /// concrete semconv enum [E]. The expected key type is concrete at
+  /// the call site, so Dart 3.10 static dot-shorthand can drop the
+  /// enum prefix on every entry:
+  ///
+  /// ```dart
+  /// // Today and forever:
+  /// OTel.attributesOf<Http>({
+  ///   Http.requestMethod: 'GET',
+  ///   Http.responseStatusCode: 200,
+  /// });
+  ///
+  /// // With Dart 3.10+ static dot-shorthand enabled:
+  /// OTel.attributesOf<Http>({
+  ///   .requestMethod: 'GET',
+  ///   .responseStatusCode: 200,
+  /// });
+  /// ```
+  ///
+  /// **Mix and match**: each typed-enum map can be spread into a wider
+  /// `Map<OTelSemantic, Object>` literal, which is exactly what
+  /// [attributesFromSemanticMap] takes — so combining HTTP + Database
+  /// keys with full dot-shorthand looks like:
+  ///
+  /// ```dart
+  /// OTel.attributesFromSemanticMap({
+  ///   ...<Http, Object>{
+  ///     Http.requestMethod: 'GET',
+  ///     Http.responseStatusCode: 200,
+  ///   },
+  ///   ...<Database, Object>{
+  ///     Database.dbSystemName: DbSystem.postgresql.value,
+  ///   },
+  /// });
+  /// ```
+  ///
+  /// Passthrough to [OTelAPI.attributesOf].
+  static Attributes attributesOf<E extends OTelSemantic>(
+    Map<E, Object> typedMap,
+  ) =>
+      OTelAPI.attributesOf<E>(typedMap);
 
   /// Creates an Attributes collection from a list of Attribute objects.
   ///
@@ -848,7 +1162,8 @@ class OTel {
     _getAndCacheOtelFactory();
     if (traceId.length != TraceId.traceIdLength) {
       throw ArgumentError(
-          'Trace ID must be exactly ${TraceId.traceIdLength} bytes, got ${traceId.length} bytes');
+        'Trace ID must be exactly ${TraceId.traceIdLength} bytes, got ${traceId.length} bytes',
+      );
     }
     return OTelFactory.otelFactory!.traceId(traceId);
   }
@@ -884,7 +1199,8 @@ class OTel {
     _getAndCacheOtelFactory();
     if (spanId.length != 8) {
       throw ArgumentError(
-          'Span ID must be exactly 8 bytes, got ${spanId.length} bytes');
+        'Span ID must be exactly 8 bytes, got ${spanId.length} bytes',
+      );
     }
     return _otelFactory!.spanId(spanId);
   }
@@ -1000,6 +1316,39 @@ class OTel {
         }
       }
     }
+
+    // Shut down all LoggerProviders — default plus any named ones added
+    // via `OTel.addLoggerProvider(name)`. Without this, each provider's
+    // BatchLogRecordProcessor `Timer.periodic` keeps the Dart isolate
+    // alive after `main()` returns, so short-lived CLI binaries hang
+    // indefinitely after `await OTel.shutdown()` (issue #33).
+    //
+    // Note: enumeration relies on `OTelAPI.loggerProviders()`, added in
+    // API `1.0.0-beta.4`. Earlier versions only had access to the default
+    // provider, which is why beta.1 of this SDK left this as a documented
+    // gap — closed here.
+    try {
+      final loggerProviders = OTelAPI.loggerProviders();
+      for (final loggerProvider in loggerProviders) {
+        try {
+          if (OTelLog.isDebug()) {
+            OTelLog.debug('OTel: Shutting down logger provider');
+          }
+          await loggerProvider.shutdown();
+          if (OTelLog.isDebug()) {
+            OTelLog.debug('OTel: Logger provider shutdown complete');
+          }
+        } catch (e) {
+          if (OTelLog.isDebug()) {
+            OTelLog.debug('OTel: Error during logger provider shutdown: $e');
+          }
+        }
+      }
+    } catch (e) {
+      if (OTelLog.isDebug()) {
+        OTelLog.debug('OTel: Error accessing logger providers: $e');
+      }
+    }
   }
 
   /// Resets the OTel state for testing purposes.
@@ -1017,8 +1366,17 @@ class OTel {
     // Reset all static fields
     _otelFactory = null;
     _defaultSampler = null;
+    _defaultTimeProvider = null;
     defaultResource = null;
     middlewareAccountKey = null;
+    // Reset print interception state
+    if (_logBridge != null) {
+      DartLogBridge.uninstall();
+    }
+    _logBridge = null;
+    _printInterceptionZoneSpec = null;
+    _logPrintEnabled = false;
+    _logPrintLoggerName = 'dart.print';
     if (OTelLog.isDebug()) OTelLog.debug('OTel: Reset static fields');
 
     // Reset API state
@@ -1047,15 +1405,17 @@ class OTel {
   /// [version] is optional and specifies the version of the instrumentation scope, defaults to '1.0.0'
   /// [schemaUrl] is optional and specifies the Schema URL
   /// [attributes] is optional and specifies instrumentation scope attributes
-  static InstrumentationScope instrumentationScope(
-      {required String name,
-      String version = '1.0.0',
-      String? schemaUrl,
-      Attributes? attributes}) {
+  static InstrumentationScope instrumentationScope({
+    required String name,
+    String version = '1.0.0',
+    String? schemaUrl,
+    Attributes? attributes,
+  }) {
     return OTelAPI.instrumentationScope(
-        name: name,
-        version: version,
-        schemaUrl: schemaUrl,
-        attributes: attributes);
+      name: name,
+      version: version,
+      schemaUrl: schemaUrl,
+      attributes: attributes,
+    );
   }
 }

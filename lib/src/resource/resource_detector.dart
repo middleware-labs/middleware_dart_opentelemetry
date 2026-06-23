@@ -1,12 +1,17 @@
 // Licensed under the Apache License, Version 2.0
 
-import 'dart:io' as io;
-
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 
 import '../environment/environment_service.dart';
+import 'native_detectors.dart';
 import 'resource.dart';
 import 'web_detector.dart';
+
+// Re-export the platform-conditional native detectors so existing
+// imports of `package:dartastic_opentelemetry/src/resource/resource_detector.dart`
+// continue to find `ProcessResourceDetector` and `HostResourceDetector`.
+export 'native_detectors.dart'
+    show HostResourceDetector, ProcessResourceDetector;
 
 /// Interface for resource detectors that automatically discover resource information.
 ///
@@ -20,70 +25,6 @@ abstract class ResourceDetector {
   ///
   /// @return A resource containing the detected attributes
   Future<Resource> detect();
-}
-
-/// Detects process-related resource information.
-///
-/// This detector populates resource attributes with information about the
-/// current process, such as executable name, command line, and runtime information.
-///
-/// Semantic conventions:
-/// https://opentelemetry.io/docs/specs/semconv/resource/process/
-class ProcessResourceDetector implements ResourceDetector {
-  @override
-  Future<Resource> detect() async {
-    if (OTelFactory.otelFactory == null) {
-      throw 'OTel initialize must be called first.';
-    }
-    return ResourceCreate.create(OTelFactory.otelFactory!.attributesFromMap({
-      'process.executable.name': io.Platform.executable,
-      'process.command_line': io.Platform.executableArguments.join(' '),
-      'process.runtime.name': 'dart',
-      'process.runtime.version': io.Platform.version,
-      'process.num_threads': io.Platform.numberOfProcessors.toString(),
-    }));
-  }
-}
-
-/// Detects host-related resource information.
-///
-/// This detector populates resource attributes with information about the
-/// host machine, such as hostname, architecture, and operating system details.
-///
-/// Semantic conventions:
-/// https://opentelemetry.io/docs/specs/semconv/resource/host/
-class HostResourceDetector implements ResourceDetector {
-  @override
-  Future<Resource> detect() async {
-    if (OTelFactory.otelFactory == null) {
-      throw 'OTel initialize must be called first.';
-    }
-    final Map<String, Object> attributes = {
-      'host.name': io.Platform.localHostname,
-      'host.arch': io.Platform.localHostname,
-      'host.processors': io.Platform.numberOfProcessors,
-      'host.os.name': io.Platform.operatingSystem,
-      'host.locale': io.Platform.localeName,
-    };
-
-    // Add OS-specific information
-    if (io.Platform.isLinux) {
-      attributes['os.type'] = 'linux';
-    } else if (io.Platform.isWindows) {
-      attributes['os.type'] = 'windows';
-    } else if (io.Platform.isMacOS) {
-      attributes['os.type'] = 'macos';
-    } else if (io.Platform.isAndroid) {
-      attributes['os.type'] = 'android';
-    } else if (io.Platform.isIOS) {
-      attributes['os.type'] = 'ios';
-    }
-
-    attributes['os.version'] = io.Platform.operatingSystemVersion;
-
-    return ResourceCreate.create(
-        OTelFactory.otelFactory!.attributesFromMap(attributes));
-  }
 }
 
 /// Detects resource information from environment variables.
@@ -107,12 +48,13 @@ class EnvVarResourceDetector implements ResourceDetector {
   @override
   Future<Resource> detect() async {
     if (OTelFactory.otelFactory == null) {
-      throw 'OTel initialize must be called first.';
+      throw StateError('OTel initialize must be called first.');
     }
 
     //TODO - OTEL_RESOURCE_ATTRIBUTES?
-    final resourceAttrs =
-        _environmentService.getValue('OTEL_RESOURCE_ATTRIBUTES');
+    final resourceAttrs = _environmentService.getValue(
+      'OTEL_RESOURCE_ATTRIBUTES',
+    );
     if (resourceAttrs == null || resourceAttrs.isEmpty) {
       return Resource.empty;
     }
@@ -132,7 +74,7 @@ class EnvVarResourceDetector implements ResourceDetector {
   /// @param envValue The value of the OTEL_RESOURCE_ATTRIBUTES environment variable
   /// @return Attributes parsed from the environment variable
   Attributes _parseResourceAttributes(String envValue) {
-    final Map<String, Object> attributes = {};
+    final attributes = <String, Object>{};
 
     // Split on commas, but handle escaped commas
     final parts = envValue.split(RegExp(r'(?<!\\),'));
@@ -179,9 +121,9 @@ class CompositeResourceDetector implements ResourceDetector {
   @override
   Future<Resource> detect() async {
     if (OTelFactory.otelFactory == null) {
-      throw 'OTel initialize must be called first.';
+      throw StateError('OTel initialize must be called first.');
     }
-    Resource result = Resource.empty;
+    var result = Resource.empty;
 
     for (final detector in _detectors) {
       try {
@@ -206,17 +148,12 @@ class PlatformResourceDetector {
   ///
   /// @return A ResourceDetector that combines all appropriate detectors
   static ResourceDetector create() {
-    final detectors = <ResourceDetector>[
-      EnvVarResourceDetector(),
-    ];
+    final detectors = <ResourceDetector>[EnvVarResourceDetector()];
 
     // For non-web platforms (native)
     if (!const bool.fromEnvironment('dart.library.js_interop')) {
       try {
-        detectors.addAll([
-          ProcessResourceDetector(),
-          HostResourceDetector(),
-        ]);
+        detectors.addAll([ProcessResourceDetector(), HostResourceDetector()]);
       } catch (e) {
         if (OTelLog.isError()) {
           OTelLog.error('Error adding native detectors: $e');

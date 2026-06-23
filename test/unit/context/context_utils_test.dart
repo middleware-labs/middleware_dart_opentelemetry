@@ -61,7 +61,7 @@ void main() {
       group('span context serialization', () {
         test('serializes span context fields correctly', () {
           final spanContext = OTel.spanContext(
-            traceId: OTel.traceIdFrom(('a' * 32)),
+            traceId: OTel.traceIdFrom('a' * 32),
             spanId: OTel.spanIdFrom('b' * 16),
             traceFlags: OTel.traceFlags(1),
             traceState: OTel.traceState({'key': 'value'}),
@@ -76,14 +76,22 @@ void main() {
           expect(serialized['spanContext'], isA<Map<String, dynamic>>());
           final serializedSpanContext =
               serialized['spanContext'] as Map<String, dynamic>;
-          expect(serializedSpanContext['traceId'],
-              equals(spanContext.traceId.hexString));
-          expect(serializedSpanContext['spanId'],
-              equals(spanContext.spanId.hexString));
-          expect(serializedSpanContext['traceFlags'],
-              equals(spanContext.traceFlags.asByte));
           expect(
-              serializedSpanContext['isRemote'], equals(spanContext.isRemote));
+            serializedSpanContext['traceId'],
+            equals(spanContext.traceId.hexString),
+          );
+          expect(
+            serializedSpanContext['spanId'],
+            equals(spanContext.spanId.hexString),
+          );
+          expect(
+            serializedSpanContext['traceFlags'],
+            equals(spanContext.traceFlags.asByte),
+          );
+          expect(
+            serializedSpanContext['isRemote'],
+            equals(spanContext.isRemote),
+          );
           expect(serializedSpanContext['traceState'], equals({'key': 'value'}));
         });
 
@@ -96,8 +104,9 @@ void main() {
             isRemote: false,
           );
 
-          final originalContext =
-              OTel.context().withSpanContext(originalSpanContext);
+          final originalContext = OTel.context().withSpanContext(
+            originalSpanContext,
+          );
 
           final serializedData = originalContext.serialize();
           final reconstructedContext = Context.deserialize(serializedData);

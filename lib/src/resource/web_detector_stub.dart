@@ -16,6 +16,7 @@ class WebResourceDetector implements ResourceDetector {
   @override
   Future<Resource> detect() async {
     throw UnsupportedError(
-        'WebResourceDetector is only available on web platforms');
+      'WebResourceDetector is only available on web platforms',
+    );
   }
 }

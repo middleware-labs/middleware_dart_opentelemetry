@@ -29,7 +29,7 @@ void main() {
 
     test('Simple ObservableCounter with single callback', () {
       // Initial value
-      int observedValue = 0;
+      var observedValue = 0;
 
       // Create an ObservableCounter with int type
       final counter = meter.createObservableCounter<int>(
@@ -82,7 +82,7 @@ void main() {
       final attributes2 = {'service': 'db'}.toAttributes();
 
       // Create value maps to simulate increasing values
-      final Map<Attributes, int> observedValues = {};
+      final observedValues = <Attributes, int>{};
 
       // Create an ObservableCounter
       final counter = meter.createObservableCounter<int>(
@@ -105,11 +105,13 @@ void main() {
 
       // Values should match our initial increments (delta calculation doesn't apply to first observation)
       expect(
-          measurements1.where((m) => m.attributes == attributes1).first.value,
-          equals(5));
+        measurements1.where((m) => m.attributes == attributes1).first.value,
+        equals(5),
+      );
       expect(
-          measurements1.where((m) => m.attributes == attributes2).first.value,
-          equals(3));
+        measurements1.where((m) => m.attributes == attributes2).first.value,
+        equals(3),
+      );
 
       // Second collection
       final measurements2 = counter.collect();
@@ -117,21 +119,27 @@ void main() {
 
       // Values should be the deltas of the second observation
       expect(
-          measurements2.where((m) => m.attributes == attributes1).first.value,
-          equals(10));
+        measurements2.where((m) => m.attributes == attributes1).first.value,
+        equals(10),
+      );
       expect(
-          measurements2.where((m) => m.attributes == attributes2).first.value,
-          equals(6));
+        measurements2.where((m) => m.attributes == attributes2).first.value,
+        equals(6),
+      );
 
       // Get metric points (cumulative)
       final points = counter.collectPoints();
       expect(points.length, equals(2));
 
       // Points should still have cumulative values
-      expect(points.where((p) => p.attributes == attributes1).first.value,
-          equals(10));
-      expect(points.where((p) => p.attributes == attributes2).first.value,
-          equals(6));
+      expect(
+        points.where((p) => p.attributes == attributes1).first.value,
+        equals(10),
+      );
+      expect(
+        points.where((p) => p.attributes == attributes2).first.value,
+        equals(6),
+      );
     });
 
     test('ObservableCounter with multiple callbacks', () {
@@ -142,19 +150,21 @@ void main() {
       ) as ObservableCounter<int>;
 
       // First callback
-      int callback1Value = 100;
+      var callback1Value = 100;
       final attributes1 = {'source': 'callback1'}.toAttributes();
-      final registration1 =
-          counter.addCallback((APIObservableResult<int> result) {
+      final registration1 = counter.addCallback((
+        APIObservableResult<int> result,
+      ) {
         result.observe(callback1Value, attributes1);
         callback1Value += 50; // Increment for next call
       });
 
       // Second callback
-      int callback2Value = 200;
+      var callback2Value = 200;
       final attributes2 = {'source': 'callback2'}.toAttributes();
-      final registration2 =
-          counter.addCallback((APIObservableResult<int> result) {
+      final registration2 = counter.addCallback((
+        APIObservableResult<int> result,
+      ) {
         result.observe(callback2Value, attributes2);
         callback2Value += 100; // Increment for next call
       });
@@ -166,21 +176,25 @@ void main() {
       final measurements1 = counter.collect();
       expect(measurements1.length, equals(2));
       expect(
-          measurements1.where((m) => m.attributes == attributes1).first.value,
-          equals(100));
+        measurements1.where((m) => m.attributes == attributes1).first.value,
+        equals(100),
+      );
       expect(
-          measurements1.where((m) => m.attributes == attributes2).first.value,
-          equals(200));
+        measurements1.where((m) => m.attributes == attributes2).first.value,
+        equals(200),
+      );
 
       // Second collection should have deltas
       final measurements2 = counter.collect();
       expect(measurements2.length, equals(2));
       expect(
-          measurements2.where((m) => m.attributes == attributes1).first.value,
-          equals(150));
+        measurements2.where((m) => m.attributes == attributes1).first.value,
+        equals(150),
+      );
       expect(
-          measurements2.where((m) => m.attributes == attributes2).first.value,
-          equals(300));
+        measurements2.where((m) => m.attributes == attributes2).first.value,
+        equals(300),
+      );
 
       // Unregister first callback
       registration1.unregister();
@@ -203,8 +217,8 @@ void main() {
 
     test('ObservableCounter with monotonicity', () {
       // Create a counter with a decreasing value to test monotonicity handling
-      int counterValue = 100;
-      bool decreaseValue = false;
+      var counterValue = 100;
+      var decreaseValue = false;
 
       final counter = meter.createObservableCounter<int>(
         name: 'monotonic-test-counter',
@@ -271,7 +285,7 @@ void main() {
 
     test('ObservableCounter collectMetrics', () {
       // Create a counter
-      int value = 0;
+      var value = 0;
 
       final counter = meter.createObservableCounter<int>(
         name: 'metrics-counter',
@@ -302,19 +316,21 @@ void main() {
       // Sum metrics from ObservableCounter are monotonic
       expect(metric.points.isNotEmpty, isTrue);
 
-      // Verify the points
+      // Verify the points. collectMetrics() drives one more callback
+      // per the OTel spec; the cumulative counter advances by another
+      // +5 per fire.
       expect(metric.points.length, equals(1));
-      expect(metric.points[0].value, equals(5));
+      expect(metric.points[0].value, equals(10)); // fires 1, 2 → 10
 
-      // Second collection - check the cumulative value
+      // Second pass: collect → fire 3 (15), collectMetrics → fire 4 (20).
       counter.collect();
       final metrics2 = counter.collectMetrics();
-      expect(metrics2[0].points[0].value, equals(10)); // 5 + 5
+      expect(metrics2[0].points[0].value, equals(20));
     });
 
     test('ObservableCounter with disabled meter', () {
       // Create a counter
-      int callCount = 0;
+      var callCount = 0;
 
       final counter = meter.createObservableCounter<int>(
         name: 'disabled-counter',
@@ -348,7 +364,7 @@ void main() {
 
     test('ObservableCounter state clearing', () async {
       // Create a counter
-      int value = 100;
+      var value = 100;
 
       final counter = meter.createObservableCounter<int>(
         name: 'clear-counter',
@@ -358,18 +374,19 @@ void main() {
         },
       ) as ObservableCounter<int>;
 
-      // First collection
+      // First collection. collectMetrics() drives one more callback per
+      // the OTel spec; value advances +25 per fire after the observe.
       counter.collect();
 
-      // Verify point exists
       final metrics1 = counter.collectMetrics();
       expect(metrics1[0].points.length, equals(1));
-      expect(metrics1[0].points[0].value, equals(100));
+      expect(metrics1[0].points[0].value, equals(125)); // fires 1, 2
 
-      // Second collection
+      // Second pass: collect → fire 3 (observe 150), collectMetrics
+      // → fire 4 (observe 175).
       counter.collect();
       final metrics2 = counter.collectMetrics();
-      expect(metrics2[0].points[0].value, equals(125));
+      expect(metrics2[0].points[0].value, equals(175));
 
       // Shutdown the meter provider (should clear internal state)
       await meterProvider.shutdown();
@@ -396,8 +413,10 @@ void main() {
       newCounter.collect();
       final metrics3 = newCounter.collectMetrics();
       expect(metrics3[0].points.length, equals(1));
-      expect(metrics3[0].points[0].value,
-          equals(200)); // New value after shutdown/reset
+      expect(
+        metrics3[0].points[0].value,
+        equals(200),
+      ); // New value after shutdown/reset
     });
   });
 }

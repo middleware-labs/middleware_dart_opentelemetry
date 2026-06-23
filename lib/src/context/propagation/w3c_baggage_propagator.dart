@@ -3,6 +3,8 @@
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/otel.dart';
 
+import '../../otel.dart';
+
 /// Implementation of the W3C Baggage specification for context propagation.
 ///
 /// This propagator handles the extraction and injection of baggage information
@@ -27,8 +29,11 @@ class W3CBaggagePropagator
   /// @param getter The getter used to extract values from the carrier
   /// @return A new Context with the extracted baggage
   @override
-  Context extract(Context context, Map<String, String> carrier,
-      TextMapGetter<String> getter) {
+  Context extract(
+    Context context,
+    Map<String, String> carrier,
+    TextMapGetter<String> getter,
+  ) {
     final value = getter.get(_baggageHeader);
     OTelLog.debug('Extracting baggage: $value');
     if (value == null || value.isEmpty) {
@@ -71,8 +76,11 @@ class W3CBaggagePropagator
   /// @param carrier The carrier to inject the baggage header into
   /// @param setter The setter used to add values to the carrier
   @override
-  void inject(Context context, Map<String, String> carrier,
-      TextMapSetter<String> setter) {
+  void inject(
+    Context context,
+    Map<String, String> carrier,
+    TextMapSetter<String> setter,
+  ) {
     if (OTelLog.isDebug()) {
       OTelLog.debug('Injecting baggage. Context: $context');
     }
@@ -80,7 +88,8 @@ class W3CBaggagePropagator
     if (contextBaggage != null) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'Context baggage: $contextBaggage (${contextBaggage.runtimeType})');
+          'Context baggage: $contextBaggage (${contextBaggage.runtimeType})',
+        );
       }
 
       final baggage = contextBaggage;
@@ -98,7 +107,8 @@ class W3CBaggagePropagator
         final metadata = entry.value.metadata;
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'Processing entry - Key: $key, Value: $value, Metadata: $metadata');
+            'Processing entry - Key: $key, Value: $value, Metadata: $metadata',
+          );
         }
         if (metadata != null && metadata.isNotEmpty) {
           return '$key=$value;$metadata';
@@ -126,9 +136,9 @@ class W3CBaggagePropagator
   /// @param value The value to encode
   /// @return The encoded value
   String _encodeComponent(String value) {
-    return Uri.encodeComponent(value)
-        .replaceAll('%20', '+')
-        .replaceAll('*', '%2A');
+    return Uri.encodeComponent(
+      value,
+    ).replaceAll('%20', '+').replaceAll('*', '%2A');
   }
 
   /// Decodes a component from the baggage header.

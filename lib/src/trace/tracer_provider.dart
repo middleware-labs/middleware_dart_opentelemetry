@@ -39,6 +39,16 @@ class TracerProvider implements APITracerProvider {
   /// The default sampler to use for new tracers.
   Sampler? sampler;
 
+  /// Clock used for span start, end, and event timestamps. Delegates to the
+  /// underlying [APITracerProvider] so the SDK and API share a single
+  /// source of truth. Defaults are platform-aware (native:
+  /// `SystemTimeProvider`; web: `WebTimeProvider`); override via
+  /// `OTel.initialize(timeProvider: ...)` or by assigning here.
+  @override
+  TimeProvider get timeProvider => _delegate.timeProvider;
+  @override
+  set timeProvider(TimeProvider value) => _delegate.timeProvider = value;
+
   @override
   bool get isShutdown => _delegate.isShutdown;
 
@@ -59,7 +69,8 @@ class TracerProvider implements APITracerProvider {
   }) : _delegate = delegate {
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'TracerProvider: Created with resource: $resource, sampler: $sampler');
+        'TracerProvider: Created with resource: $resource, sampler: $sampler',
+      );
       if (resource != null) {
         OTelLog.debug('Resource attributes:');
         resource!.attributes.toList().forEach((attr) {
@@ -73,11 +84,13 @@ class TracerProvider implements APITracerProvider {
   Future<bool> shutdown() async {
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'TracerProvider: Shutting down with ${_spanProcessors.length} processors');
+        'TracerProvider: Shutting down with ${_spanProcessors.length} processors',
+      );
     }
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'TracerProvider: Shutting down with ${_spanProcessors.length} processors');
+        'TracerProvider: Shutting down with ${_spanProcessors.length} processors',
+      );
     }
 
     if (!isShutdown) {
@@ -85,22 +98,26 @@ class TracerProvider implements APITracerProvider {
       for (final processor in _spanProcessors) {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'TracerProvider: Shutting down processor ${processor.runtimeType}');
+            'TracerProvider: Shutting down processor ${processor.runtimeType}',
+          );
         }
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'SDKTracerProvider: Shutting down processor ${processor.runtimeType}');
+            'SDKTracerProvider: Shutting down processor ${processor.runtimeType}',
+          );
         }
         try {
           await processor.shutdown();
           if (OTelLog.isDebug()) {
             OTelLog.debug(
-                'TracerProvider: Successfully shut down processor ${processor.runtimeType}');
+              'TracerProvider: Successfully shut down processor ${processor.runtimeType}',
+            );
           }
         } catch (e) {
           if (OTelLog.isDebug()) {
             OTelLog.debug(
-                'TracerProvider: Error shutting down processor ${processor.runtimeType}: $e');
+              'TracerProvider: Error shutting down processor ${processor.runtimeType}: $e',
+            );
           }
         }
       }
@@ -140,7 +157,8 @@ class TracerProvider implements APITracerProvider {
   }) {
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'TracerProvider: Getting tracer with name: $name, version: $version, schemaUrl: $schemaUrl');
+        'TracerProvider: Getting tracer with name: $name, version: $version, schemaUrl: $schemaUrl',
+      );
     }
     if (isShutdown) {
       throw StateError('TracerProvider has been shut down');
@@ -177,7 +195,8 @@ class TracerProvider implements APITracerProvider {
     }
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'SDKTracerProvider: Adding span processor of type ${processor.runtimeType}');
+        'SDKTracerProvider: Adding span processor of type ${processor.runtimeType}',
+      );
     }
     _spanProcessors.add(processor);
   }
@@ -249,13 +268,15 @@ class TracerProvider implements APITracerProvider {
   Future<void> forceFlush() async {
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'TracerProvider: Force flushing ${_spanProcessors.length} processors');
+        'TracerProvider: Force flushing ${_spanProcessors.length} processors',
+      );
     }
 
     if (isShutdown) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'TracerProvider: Cannot force flush - provider is shut down');
+          'TracerProvider: Cannot force flush - provider is shut down',
+        );
       }
       return;
     }
@@ -264,17 +285,20 @@ class TracerProvider implements APITracerProvider {
       try {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'TracerProvider: Flushing processor ${processor.runtimeType}');
+            'TracerProvider: Flushing processor ${processor.runtimeType}',
+          );
         }
         await processor.forceFlush();
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'TracerProvider: Successfully flushed processor ${processor.runtimeType}');
+            'TracerProvider: Successfully flushed processor ${processor.runtimeType}',
+          );
         }
       } catch (e) {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'TracerProvider: Error flushing processor ${processor.runtimeType}: $e');
+            'TracerProvider: Error flushing processor ${processor.runtimeType}: $e',
+          );
         }
       }
     }

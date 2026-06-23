@@ -35,9 +35,7 @@ class SumStorage<T extends num> extends NumericStorage<T> {
   /// Creates a new SumStorage instance.
   ///
   /// @param isMonotonic Whether this storage is for a monotonic sum
-  SumStorage({
-    required this.isMonotonic,
-  });
+  SumStorage({required this.isMonotonic});
 
   /// Records a measurement with the given attributes.
   ///
@@ -50,8 +48,10 @@ class SumStorage<T extends num> extends NumericStorage<T> {
   void record(T value, [Attributes? attributes]) {
     // Check constraints for monotonic counters
     if (isMonotonic && value < 0) {
-      print('Warning: Negative value $value provided to monotonic sum storage. '
-          'This will be ignored.');
+      print(
+        'Warning: Negative value $value provided to monotonic sum storage. '
+        'This will be ignored.',
+      );
       return;
     }
 
@@ -177,10 +177,7 @@ class _SumPointData<T extends num> {
   ///
   /// @param value The initial value
   /// @param lastUpdateTime The time of the initial value
-  _SumPointData({
-    required this.value,
-    required this.lastUpdateTime,
-  });
+  _SumPointData({required this.value, required this.lastUpdateTime});
 
   /// Adds a value to this point (for synchronous counters).
   ///

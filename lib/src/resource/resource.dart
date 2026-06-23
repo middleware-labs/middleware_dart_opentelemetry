@@ -6,6 +6,8 @@ import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:meta/meta.dart';
 import 'package:middleware_dart_opentelemetry/src/otel.dart';
 
+import '../otel.dart';
+
 part 'resource_create.dart';
 
 /// Represents a resource, which captures identifying information about the entities
@@ -85,8 +87,10 @@ class Resource {
       mergedSchemaUrl = other._schemaUrl;
     }
 
-    final result =
-        Resource._(OTel.attributesFromMap(mergedMap), mergedSchemaUrl);
+    final result = Resource._(
+      OTel.attributesFromMap(mergedMap),
+      mergedSchemaUrl,
+    );
 
     if (OTelLog.isDebug()) {
       OTelLog.debug('Resource merge result attributes:');

@@ -1,7 +1,5 @@
 // Licensed under the Apache License, Version 2.0
 
-// ignore_for_file: public_member_api_docs
-
 // Implementation file for web platforms
 // This file won't be directly imported on non-web platforms
 import 'dart:js_interop';
@@ -32,16 +30,20 @@ extension NavigatorJSExtension on NavigatorJS {
 }
 
 // Pure JS function to safely get languages as string
-@JS('function() { '
-    'var langs = window.navigator.languages;'
-    'return (langs && Array.isArray(langs)) ? langs.join(",") : "";'
-    '}')
+@JS(
+  'function() { '
+  'var langs = window.navigator.languages;'
+  'return (langs && Array.isArray(langs)) ? langs.join(",") : "";'
+  '}',
+)
 external String _getLanguagesString();
 
 // Pure JS function to check if mobile
-@JS('function() { '
-    'return /Mobile|Android|iPhone|iPad|iPod|Windows Phone/i.test(window.navigator.userAgent) ? "true" : "false";'
-    '}')
+@JS(
+  'function() { '
+  'return /Mobile|Android|iPhone|iPad|iPod|Windows Phone/i.test(window.navigator.userAgent) ? "true" : "false";'
+  '}',
+)
 external String _isMobile();
 
 /// Detects browser and web-specific resource information.
@@ -59,17 +61,20 @@ class WebResourceDetector implements ResourceDetector {
   @override
   Future<Resource> detect() async {
     if (OTelFactory.otelFactory == null) {
-      throw 'OTel initialize must be called first.';
+      throw StateError('OTel initialize must be called first.');
     }
 
     // Use JS interop to safely get navigator properties
-    final Map<String, Object> attributes = {};
+    final attributes = <String, Object>{};
 
     try {
       final nav = _navigator;
       attributes['browser.language'] = nav.language ?? '';
       attributes['browser.platform'] = nav.platform ?? '';
-      attributes['browser.user_agent'] = nav.userAgent ?? '';
+      // `user_agent.original` is the current OTel semconv key; the
+      // older `browser.user_agent` was removed from the browser
+      // namespace in favor of this top-level key.
+      attributes[UserAgent.userAgentOriginal.key] = nav.userAgent ?? '';
       attributes['browser.vendor'] = nav.vendor ?? '';
       attributes['browser.mobile'] = _isMobile();
 
@@ -80,13 +85,14 @@ class WebResourceDetector implements ResourceDetector {
       // Provide fallback values to avoid empty attributes
       attributes['browser.language'] = '';
       attributes['browser.platform'] = '';
-      attributes['browser.user_agent'] = '';
+      attributes[UserAgent.userAgentOriginal.key] = '';
       attributes['browser.vendor'] = '';
       attributes['browser.mobile'] = 'false';
       attributes['browser.languages'] = '';
     }
 
     return ResourceCreate.create(
-        OTelFactory.otelFactory!.attributesFromMap(attributes));
+      OTelFactory.otelFactory!.attributesFromMap(attributes),
+    );
   }
 }

@@ -147,7 +147,8 @@ class EnvironmentService implements EnvironmentServiceInterface {
         return const String.fromEnvironment(otelExporterOtlpTracesClientKey);
       case otelExporterOtlpTracesClientCertificate:
         return const String.fromEnvironment(
-            otelExporterOtlpTracesClientCertificate);
+          otelExporterOtlpTracesClientCertificate,
+        );
 
       // Metrics-specific Configuration
       case otelMetricsExporter:
@@ -170,7 +171,8 @@ class EnvironmentService implements EnvironmentServiceInterface {
         return const String.fromEnvironment(otelExporterOtlpMetricsClientKey);
       case otelExporterOtlpMetricsClientCertificate:
         return const String.fromEnvironment(
-            otelExporterOtlpMetricsClientCertificate);
+          otelExporterOtlpMetricsClientCertificate,
+        );
 
       // Logs-specific Configuration
       case otelLogsExporter:
@@ -193,7 +195,8 @@ class EnvironmentService implements EnvironmentServiceInterface {
         return const String.fromEnvironment(otelExporterOtlpLogsClientKey);
       case otelExporterOtlpLogsClientCertificate:
         return const String.fromEnvironment(
-            otelExporterOtlpLogsClientCertificate);
+          otelExporterOtlpLogsClientCertificate,
+        );
 
       // Batch Span Processor
       case otelBspScheduleDelay:
@@ -238,7 +241,8 @@ class EnvironmentService implements EnvironmentServiceInterface {
       // LogRecord Limits
       case otelLogrecordAttributeValueLengthLimit:
         return const String.fromEnvironment(
-            otelLogrecordAttributeValueLengthLimit);
+          otelLogrecordAttributeValueLengthLimit,
+        );
       case otelLogrecordAttributeCountLimit:
         return const String.fromEnvironment(otelLogrecordAttributeCountLimit);
 

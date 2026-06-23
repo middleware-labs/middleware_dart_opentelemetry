@@ -1,12 +1,19 @@
 // Licensed under the Apache License, Version 2.0
 
+import '../../../../export/otlp_http_protocol.dart';
 import '../../../../trace/export/otlp/certificate_utils.dart';
 
-/// Configuration for the OpenTelemetry metric exporter that exports metrics using OTLP over HTTP/protobuf
+/// Configuration for the OpenTelemetry metric exporter that exports metrics
+/// using OTLP/HTTP. Wire format defaults to `application/x-protobuf` and can
+/// be switched to `application/json` via [protocol].
 class OtlpHttpMetricExporterConfig {
   /// The endpoint to export metrics to (e.g., 'http://localhost:4318/v1/metrics')
   /// Default: 'http://localhost:4318'
   final String endpoint;
+
+  /// Wire-format protocol — `httpProtobuf` (default) or `httpJson`.
+  /// Controls `Content-Type` and how OTLP messages are serialized.
+  final OtlpHttpProtocol protocol;
 
   /// Additional HTTP headers to include in the export requests
   final Map<String, String> headers;
@@ -55,6 +62,7 @@ class OtlpHttpMetricExporterConfig {
     this.certificate,
     this.clientKey,
     this.clientCertificate,
+    this.protocol = OtlpHttpProtocol.httpProtobuf,
   })  : endpoint = _validateEndpoint(endpoint),
         headers = _validateHeaders(headers ?? {}),
         timeout = _validateTimeout(timeout),
@@ -151,7 +159,10 @@ class OtlpHttpMetricExporterConfig {
   }
 
   static void _validateCertificates(
-      String? cert, String? key, String? clientCert) {
+    String? cert,
+    String? key,
+    String? clientCert,
+  ) {
     CertificateUtils.validateCertificates(
       certificate: cert,
       clientKey: key,

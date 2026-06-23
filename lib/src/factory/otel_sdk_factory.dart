@@ -3,8 +3,11 @@
 import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/tracer_provider.dart';
 
+
+import '../logs/logger_provider.dart';
 import '../metrics/meter_provider.dart';
 import '../resource/resource.dart';
+import '../trace/tracer_provider.dart';
 
 /// Factory function that creates an OTelSDKFactory with the specified configuration.
 ///
@@ -45,11 +48,12 @@ class OTelSDKFactory extends OTelAPIFactory {
   /// @param apiServiceName The name of the service being instrumented
   /// @param apiServiceVersion The version of the service being instrumented
   /// @param factoryFactory Optional factory function for creating new instances
-  OTelSDKFactory(
-      {required super.apiEndpoint,
-      required super.apiServiceName,
-      required super.apiServiceVersion,
-      super.factoryFactory = otelSDKFactoryFactoryFunction});
+  OTelSDKFactory({
+    required super.apiEndpoint,
+    required super.apiServiceName,
+    required super.apiServiceVersion,
+    super.factoryFactory = otelSDKFactoryFactoryFunction,
+  });
 
   /// Creates a new Resource with the specified attributes and schema URL.
   ///
@@ -91,11 +95,13 @@ class OTelSDKFactory extends OTelAPIFactory {
       String? serviceVersion,
       Resource? resource}) {
     return SDKTracerProviderCreate.create(
-        delegate: super.tracerProvider(
-            endpoint: endpoint,
-            serviceVersion: serviceVersion,
-            serviceName: serviceName),
-        resource: resource);
+      delegate: super.tracerProvider(
+        endpoint: endpoint,
+        serviceVersion: serviceVersion,
+        serviceName: serviceName,
+      ),
+      resource: resource,
+    );
   }
 
   /// Creates a MeterProvider with the specified configuration.
@@ -109,13 +115,40 @@ class OTelSDKFactory extends OTelAPIFactory {
   /// @param resource Optional resource describing the service
   /// @return A configured MeterProvider instance
   @override
-  APIMeterProvider meterProvider(
+  APIMeterProvider meterProvider({
+    required String endpoint,
+    String serviceName = '@dart/opentelemetry_api',
+    String? serviceVersion,
+    Resource? resource,
+  }) {
+    return SDKMeterProviderCreate.create(
+      delegate: super.meterProvider(
+        endpoint: endpoint,
+        serviceVersion: serviceVersion,
+        serviceName: serviceName,
+      ),
+      resource: resource,
+    );
+  }
+
+  /// Creates a LoggerProvider with the specified configuration.
+  ///
+  /// This implementation overrides the API's method to create an SDK LoggerProvider
+  /// that produces real logs instead of no-op logs.
+  ///
+  /// @param endpoint The endpoint URL for the OpenTelemetry collector
+  /// @param serviceName The name of the service being instrumented
+  /// @param serviceVersion The version of the service being instrumented
+  /// @param resource Optional resource describing the service
+  /// @return A configured LoggerProvider instance
+  @override
+  APILoggerProvider loggerProvider(
       {required String endpoint,
-      String serviceName = "@dart/opentelemetry_api",
+      String serviceName = '@dart/opentelemetry_api',
       String? serviceVersion,
       Resource? resource}) {
-    return SDKMeterProviderCreate.create(
-        delegate: super.meterProvider(
+    return SDKLoggerProviderCreate.create(
+        delegate: super.loggerProvider(
             endpoint: endpoint,
             serviceVersion: serviceVersion,
             serviceName: serviceName),

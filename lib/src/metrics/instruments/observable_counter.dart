@@ -76,9 +76,10 @@ class ObservableCounter<T extends num>
 
     if (attributes == null) {
       // For no attributes, sum all points
-      value = _storage
-          .collectPoints()
-          .fold<num>(0, (sum, point) => sum + point.value);
+      value = _storage.collectPoints().fold<num>(
+            0,
+            (sum, point) => sum + point.value,
+          );
     } else {
       // For specific attributes, get that value
       value = _storage.getValue(attributes);
@@ -130,14 +131,14 @@ class ObservableCounter<T extends num>
         for (final measurement in observableResult.measurements) {
           // Type checking for the generic parameter
           final dynamic rawValue = measurement.value;
-          final num value = (rawValue is num)
+          final value = (rawValue is num)
               ? rawValue
               : num.tryParse(rawValue.toString()) ?? 0;
           final attributes =
               measurement.attributes ?? OTelFactory.otelFactory!.attributes();
 
           // Check for monotonicity - current value should be >= last value
-          final T lastValue =
+          final lastValue =
               (_lastValues[attributes] ?? (T == int ? 0 : 0.0)) as T;
 
           // If value decreased, it indicates a counter reset
@@ -188,7 +189,8 @@ class ObservableCounter<T extends num>
         }
       } catch (e) {
         print(
-            'Error collecting measurements from ObservableCounter callback: $e');
+          'Error collecting measurements from ObservableCounter callback: $e',
+        );
       }
     }
 
@@ -198,11 +200,17 @@ class ObservableCounter<T extends num>
   /// Collects metrics for the SDK metric export.
   ///
   /// This is called by the MeterProvider during metric collection.
+  /// Per the OTel spec, observable instruments must invoke their
+  /// registered callbacks on every collection cycle. Drive [collect]
+  /// first so the callback runs and storage reflects the latest
+  /// absolute counter value before we read it.
   @override
   List<Metric> collectMetrics() {
     if (!enabled) {
       return [];
     }
+
+    collect();
 
     // Get the points from storage
     final points = collectPoints();
@@ -219,7 +227,7 @@ class ObservableCounter<T extends num>
         temporality: AggregationTemporality.cumulative,
         points: points,
         isMonotonic: true, // Counters are monotonic
-      )
+      ),
     ];
   }
 

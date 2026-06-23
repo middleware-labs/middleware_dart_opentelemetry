@@ -86,7 +86,12 @@ class View {
   }
 
   /// Checks if this view matches the given instrument.
-  bool matches(String instrumentName, APIInstrument instrument) {
+  ///
+  /// The [instrument] parameter accepts any instrument type (APICounter,
+  /// APIHistogram, APIGauge, etc.) as well as their SDK implementations.
+  /// All API instrument classes expose a `meter` getter, but they don't
+  /// share a common base class — hence the `dynamic` parameter.
+  bool matches(String instrumentName, dynamic instrument) {
     // Check instrument name pattern
     if (!_matchesPattern(instrumentName, instrumentNamePattern)) {
       return false;
@@ -94,28 +99,31 @@ class View {
 
     // Check instrument type if specified
     if (instrumentType != null) {
-      if (instrumentType == APICounter && !_isCounter(instrument)) {
+      if (instrumentType == APICounter && instrument is! APICounter) {
         return false;
       } else if (instrumentType == APIUpDownCounter &&
-          !_isUpDownCounter(instrument)) {
+          instrument is! APIUpDownCounter) {
         return false;
-      } else if (instrumentType == APIHistogram && !_isHistogram(instrument)) {
+      } else if (instrumentType == APIHistogram &&
+          instrument is! APIHistogram) {
         return false;
-      } else if (instrumentType == APIGauge && !_isGauge(instrument)) {
+      } else if (instrumentType == APIGauge && instrument is! APIGauge) {
         return false;
       } else if (instrumentType == APIObservableCounter &&
-          !_isObservableCounter(instrument)) {
+          instrument is! APIObservableCounter) {
         return false;
       } else if (instrumentType == APIObservableUpDownCounter &&
-          !_isObservableUpDownCounter(instrument)) {
+          instrument is! APIObservableUpDownCounter) {
         return false;
       } else if (instrumentType == APIObservableGauge &&
-          !_isObservableGauge(instrument)) {
+          instrument is! APIObservableGauge) {
         return false;
       }
     }
 
-    // Check meter name if specified
+    // Check meter name if specified. All instrument classes expose a
+    // `meter` getter even without a common base type.
+    // ignore: avoid_dynamic_calls
     if (meterName != null && meterName != instrument.meter.name) {
       return false;
     }
@@ -135,33 +143,5 @@ class View {
     }
 
     return name == pattern;
-  }
-
-  bool _isCounter(APIInstrument instrument) {
-    return instrument is APICounter;
-  }
-
-  bool _isUpDownCounter(APIInstrument instrument) {
-    return instrument is APIUpDownCounter;
-  }
-
-  bool _isHistogram(APIInstrument instrument) {
-    return instrument is APIHistogram;
-  }
-
-  bool _isGauge(APIInstrument instrument) {
-    return instrument is APIGauge;
-  }
-
-  bool _isObservableCounter(APIInstrument instrument) {
-    return instrument is APIObservableCounter;
-  }
-
-  bool _isObservableUpDownCounter(APIInstrument instrument) {
-    return instrument is APIObservableUpDownCounter;
-  }
-
-  bool _isObservableGauge(APIInstrument instrument) {
-    return instrument is APIObservableGauge;
   }
 }

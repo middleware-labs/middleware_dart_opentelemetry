@@ -14,10 +14,12 @@ class GZip {
     final compressionStream = CompressionStream('gzip');
     final reader = _blob(data)
         .stream()
-        .pipeThrough(ReadableWritablePair(
-          readable: compressionStream.readable,
-          writable: compressionStream.writable,
-        ))
+        .pipeThrough(
+          ReadableWritablePair(
+            readable: compressionStream.readable,
+            writable: compressionStream.writable,
+          ),
+        )
         .getReader() as ReadableStreamDefaultReader;
     return await _readUntilDone(reader);
   }
@@ -27,10 +29,12 @@ class GZip {
     final decompressionStream = DecompressionStream('gzip');
     final reader = _blob(data)
         .stream()
-        .pipeThrough(ReadableWritablePair(
-          readable: decompressionStream.readable,
-          writable: decompressionStream.writable,
-        ))
+        .pipeThrough(
+          ReadableWritablePair(
+            readable: decompressionStream.readable,
+            writable: decompressionStream.writable,
+          ),
+        )
         .getReader() as ReadableStreamDefaultReader;
     return await _readUntilDone(reader);
   }
@@ -40,11 +44,14 @@ class GZip {
     var isDone = false;
     while (!isDone) {
       final readChunk = await reader.read().toDart;
-      if (readChunk.value != null) {
-        // Explicitly ignore the type safety warning since we know this works
-        // at runtime in the browser environment
-        // ignore: invalid_runtime_check_with_js_interop_types
-        final bytes = readChunk.value as Uint8List;
+      final value = readChunk.value;
+      if (value != null) {
+        // ReadableStream yields a JS Uint8Array. On dart2js the cast
+        // `as Uint8List` works because JS values and Dart values share
+        // a representation, but on dart2wasm we must explicitly convert
+        // via the `toDart` extension on `JSUint8Array`. Going through
+        // the JS interop type works on both compilers.
+        final bytes = (value as JSUint8Array).toDart;
         values.addAll(bytes);
       }
       isDone = readChunk.done;
@@ -52,8 +59,6 @@ class GZip {
     return values;
   }
 
-  Blob _blob(Uint8List data) => Blob(
-        [data.toJS].toJS,
-        BlobPropertyBag(type: 'application/octet-stream'),
-      );
+  Blob _blob(Uint8List data) =>
+      Blob([data.toJS].toJS, BlobPropertyBag(type: 'application/octet-stream'));
 }

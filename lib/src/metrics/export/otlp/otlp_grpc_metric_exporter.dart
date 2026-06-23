@@ -8,7 +8,7 @@ import '../../../../middleware_dart_opentelemetry.dart';
 import '../../../../proto/collector/metrics/v1/metrics_service.pbgrpc.dart';
 import '../../../../proto/common/v1/common.pb.dart' as common_proto;
 import '../../../../proto/metrics/v1/metrics.pb.dart' as proto;
-import '../../../trace/export/otlp/certificate_utils.dart';
+import '../../../trace/export/otlp/certificate_utils_io.dart';
 import 'metric_transformer.dart';
 
 /// OtlpGrpcMetricExporter exports metrics to the OpenTelemetry collector via gRPC.
@@ -28,7 +28,8 @@ class OtlpGrpcMetricExporter implements MetricExporter {
   /// If insecure is true, returns insecure credentials.
   /// Otherwise, creates secure credentials with optional custom certificates for mTLS.
   static ChannelCredentials _createChannelCredentials(
-      OtlpGrpcMetricExporterConfig config) {
+    OtlpGrpcMetricExporterConfig config,
+  ) {
     if (config.insecure) {
       return const ChannelCredentials.insecure();
     }
@@ -59,7 +60,8 @@ class OtlpGrpcMetricExporter implements MetricExporter {
     } catch (e) {
       if (OTelLog.isError()) {
         OTelLog.error(
-            'OtlpGrpcMetricExporter: Failed to load certificates: $e');
+          'OtlpGrpcMetricExporter: Failed to load certificates: $e',
+        );
       }
       // Fall back to default secure credentials on error
       return const ChannelCredentials.secure();
@@ -67,29 +69,26 @@ class OtlpGrpcMetricExporter implements MetricExporter {
   }
 
   static MetricsServiceClient _createClient(
-      OtlpGrpcMetricExporterConfig config) {
+    OtlpGrpcMetricExporterConfig config,
+  ) {
     final channelOptions = ChannelOptions(
       credentials: _createChannelCredentials(config),
       codecRegistry: CodecRegistry(codecs: const [GzipCodec()]),
     );
 
     // Parse host and port from endpoint
-    final Uri uri = Uri.parse(config.endpoint);
-    final String host = uri.host;
-    final int port =
-        uri.port > 0 ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+    final uri = Uri.parse(config.endpoint);
+    final host = uri.host;
+    final port = uri.port > 0 ? uri.port : (uri.scheme == 'https' ? 443 : 80);
 
     if (OTelLog.isLogExport()) {
       OTelLog.logExport(
-          'OtlpGrpcMetricExporter: Creating client for $host:$port');
+        'OtlpGrpcMetricExporter: Creating client for $host:$port',
+      );
     }
 
     // We store the channel separately to be able to shut it down later
-    _channel = ClientChannel(
-      host,
-      port: port,
-      options: channelOptions,
-    );
+    _channel = ClientChannel(host, port: port, options: channelOptions);
 
     // Build call options with headers and compression
     final callOptionsBuilder = CallOptions(
@@ -97,7 +96,7 @@ class OtlpGrpcMetricExporter implements MetricExporter {
     );
 
     // Add custom headers if provided
-    final Map<String, String> metadata = {};
+    final metadata = <String, String>{};
     if (config.headers != null) {
       metadata.addAll(config.headers!);
     }
@@ -120,7 +119,8 @@ class OtlpGrpcMetricExporter implements MetricExporter {
     if (_shutdown) {
       if (OTelLog.isLogExport()) {
         OTelLog.logExport(
-            'OtlpGrpcMetricExporter: Cannot export after shutdown');
+          'OtlpGrpcMetricExporter: Cannot export after shutdown',
+        );
       }
       return false;
     }
@@ -135,10 +135,12 @@ class OtlpGrpcMetricExporter implements MetricExporter {
     try {
       if (OTelLog.isLogExport()) {
         OTelLog.logExport(
-            'OtlpGrpcMetricExporter: Exporting ${data.metrics.length} metrics');
+          'OtlpGrpcMetricExporter: Exporting ${data.metrics.length} metrics',
+        );
         for (final metric in data.metrics) {
           OTelLog.logExport(
-              '  - ${metric.name} (${metric.type}): ${metric.points.length} data points');
+            '  - ${metric.name} (${metric.type}): ${metric.points.length} data points',
+          );
         }
       }
 
@@ -168,18 +170,21 @@ class OtlpGrpcMetricExporter implements MetricExporter {
 
     // Add resource
     if (data.resource != null) {
-      resourceMetrics.resource =
-          MetricTransformer.transformResource(data.resource!);
+      resourceMetrics.resource = MetricTransformer.transformResource(
+        data.resource!,
+      );
     } else {
       // Create empty resource if none provided
-      resourceMetrics.resource =
-          MetricTransformer.transformResource(OTel.resource(null));
+      resourceMetrics.resource = MetricTransformer.transformResource(
+        OTel.resource(null),
+      );
     }
 
     // Add scope metrics
     final scopeMetrics = proto.ScopeMetrics();
-    scopeMetrics.metrics
-        .addAll(data.metrics.map(MetricTransformer.transformMetric));
+    scopeMetrics.metrics.addAll(
+      data.metrics.map(MetricTransformer.transformMetric),
+    );
 
     // Add instrumentation scope (hardcoded for now)
     final scope = common_proto.InstrumentationScope();

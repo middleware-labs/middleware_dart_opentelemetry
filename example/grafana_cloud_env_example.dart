@@ -1,8 +1,31 @@
 // Licensed under the Apache License, Version 2.0
 
+// Helper functions below `main()` show alternate initialization paths;
+// they aren't all reachable from this file's `main()`.
+// ignore_for_file: unreachable_from_main
+
 import 'dart:convert';
 
 import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+
+/// Example-only attribute keys for things not in the OTel semantic
+/// conventions (https://opentelemetry.io/docs/specs/semconv/). Always
+/// check the conventions first — the API's built-in enums (User,
+/// Http, Server, Database, Client,
+/// Session) cover the spec keys. Rename this in your own
+/// code (e.g. `CheckoutAttribute`) so the names reflect your domain.
+enum ExampleAttribute implements OTelSemantic {
+  authMethod('auth.method'),
+  permissions('permissions');
+
+  @override
+  final String key;
+
+  @override
+  String toString() => key;
+
+  const ExampleAttribute(this.key);
+}
 
 /// Example: Configuring OpenTelemetry for Grafana Cloud using environment variables
 ///
@@ -37,7 +60,8 @@ Future<void> main() async {
 
   print('OpenTelemetry initialized with environment configuration');
   print(
-      'Service: ${OTel.defaultResource?.attributes.toList().firstWhere((a) => a.key == 'service.name').value}');
+    'Service: ${OTel.defaultResource?.attributes.toList().firstWhere((a) => a.key == Service.serviceName.key).value}',
+  );
 
   // Create a tracer
   final tracer = OTel.tracer();
@@ -58,37 +82,39 @@ Future<void> main() async {
   print('All spans exported to Grafana Cloud');
 }
 
-/// Example: Tracing a user login operation
+/// Example: Tracing a user login operation.
 Future<void> traceUserLogin(Tracer tracer, String userId) async {
   final span = tracer.startSpan(
     'user.login',
     kind: SpanKind.server,
-    attributes: OTel.attributesFromMap({
-      'user.id': userId,
-      'auth.method': 'oauth2',
-      'client.ip': '192.168.1.100',
+    attributes: OTel.attributesFromSemanticMap({
+      User.userId: userId,
+      ExampleAttribute.authMethod: 'oauth2',
+      // client.address replaces the deprecated client.ip per OTel semconv.
+      Client.clientAddress: '192.168.1.100',
     }),
   );
 
   try {
-    // Simulate authentication check
+    // Simulate authentication check.
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    // Add event for successful authentication
-    span.addEvent(OTel.spanEventNow(
-      'authentication.success',
-      OTel.attributesFromMap({
-        'session.id': 'sess_${DateTime.now().millisecondsSinceEpoch}',
-        'permissions': 'read,write',
-      }),
-    ));
-
-    // Record success
-    span.setStatus(SpanStatusCode.Ok);
-  } catch (error) {
-    // Record error
-    span.setStatus(SpanStatusCode.Error, error.toString());
-    span.recordException(error);
+    // Add event for successful authentication.
+    span.addEvent(
+      OTel.spanEventNow(
+        'authentication.success',
+        OTel.attributesFromSemanticMap({
+          Session.sessionId: 'sess_${DateTime.now().millisecondsSinceEpoch}',
+          ExampleAttribute.permissions: 'read,write',
+        }),
+      ),
+    );
+  } catch (e, stackTrace) {
+    // The span has a status of SpanStatus.Ok on creation, set it to
+    // Error when an error occurs in the span.
+    span.recordException(e, stackTrace: stackTrace);
+    span.setStatus(SpanStatusCode.Error, e.toString());
+    rethrow;
   } finally {
     span.end();
   }
@@ -96,66 +122,86 @@ Future<void> traceUserLogin(Tracer tracer, String userId) async {
 
 /// Example: Tracing an HTTP request
 Future<void> traceHttpRequest(Tracer tracer) async {
+  // `attributesOf<E>` is the single-enum form — every key is checked
+  // against `Http` at compile time, and Dart 3.10's static dot-shorthand
+  // can shorten each entry to `.requestMethod`, `.urlFull`, etc.
+  // `ServerResource` (which keeps its suffix because plain `Server`
+  // clashes with `package:grpc`'s `Server`) is mixed in via a map spread
+  // — Dart widens the literal's type to `Map<OTelSemantic, Object>`
+  // automatically, so `attributesFromSemanticMap` accepts it.
   final span = tracer.startSpan(
     'http.request',
     kind: SpanKind.client,
-    attributes: OTel.attributesFromMap({
-      'http.method': 'GET',
-      'http.url': 'https://api.example.com/users/123',
-      'http.target': '/users/123',
-      'net.peer.name': 'api.example.com',
-      'net.peer.port': 443,
+    attributes: OTel.attributesFromSemanticMap({
+      ...<Http, Object>{
+        Http.requestMethod: 'GET',
+      },
+      ...<Url, Object>{
+        Url.urlFull: 'https://api.example.com/users/123',
+        Url.urlPath: '/users/123',
+      },
+      ...<ServerResource, Object>{
+        ServerResource.serverAddress: 'api.example.com',
+        ServerResource.serverPort: 443,
+      },
     }),
   );
 
   try {
-    // Simulate HTTP request
+    // Simulate HTTP request.
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    // Set response attributes
-    span.addAttributes(OTel.attributesFromMap({
-      'http.status_code': 200,
-      'http.response_content_length': 1234,
-    }));
-
-    span.setStatus(SpanStatusCode.Ok);
-  } catch (error) {
-    span.addAttributes(OTel.attributesFromMap({
-      'http.status_code': 500,
-    }));
-    span.setStatus(SpanStatusCode.Error, 'HTTP request failed');
-    span.recordException(error);
+    // Single-namespace addition — pure `Http` so we use the shorter
+    // `attributesOf<Http>` form.
+    span.addAttributes(
+      OTel.attributesOf<Http>({
+        Http.responseStatusCode: 200,
+        Http.responseBodySize: 1234,
+      }),
+    );
+  } catch (e, stackTrace) {
+    span.addAttributes(OTel.attributesOf<Http>({Http.responseStatusCode: 500}));
+    // The span has a status of SpanStatus.Ok on creation, set it to
+    // Error when an error occurs in the span.
+    span.recordException(e, stackTrace: stackTrace);
+    span.setStatus(SpanStatusCode.Error, 'HTTP request failed: $e');
+    rethrow;
   } finally {
     span.end();
   }
 }
 
-/// Example: Tracing a database operation
+/// Example: Tracing a database operation.
 Future<void> traceDatabaseOperation(Tracer tracer) async {
   final span = tracer.startSpan(
     'db.query',
     kind: SpanKind.client,
-    attributes: OTel.attributesFromMap({
-      'db.system': 'postgresql',
-      'db.name': 'users_db',
-      'db.operation': 'SELECT',
-      'db.statement': 'SELECT * FROM users WHERE active = true LIMIT 100',
-      'db.user': 'app_user',
-      'net.peer.name': 'postgres.example.com',
-      'net.peer.port': 5432,
+    attributes: OTel.attributesFromSemanticMap({
+      Database.dbSystem: 'postgresql',
+      Database.dbName: 'users_db',
+      Database.dbOperation: 'SELECT',
+      Database.dbStatement: 'SELECT * FROM users WHERE active = true LIMIT 100',
+      Database.dbUser: 'app_user',
+      // server.address / server.port replace the deprecated net.peer.*
+      // per OTel semconv.
+      ServerResource.serverAddress: 'postgres.example.com',
+      ServerResource.serverPort: 5432,
     }),
   );
 
   try {
-    // Simulate database query
+    // Simulate database query.
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
-    // Add result metadata
-    span.addAttributes(Attributes.of({'db.rows_affected': 42}));
-    span.setStatus(SpanStatusCode.Ok);
-  } catch (error) {
-    span.setStatus(SpanStatusCode.Error, 'Database query failed');
-    span.recordException(error);
+    // Add result metadata.
+    span.addAttributes(
+        Attributes.of({Database.dbResponseReturnedRows.key: 42}));
+  } catch (e, stackTrace) {
+    // The span has a status of SpanStatus.Ok on creation, set it to
+    // Error when an error occurs in the span.
+    span.recordException(e, stackTrace: stackTrace);
+    span.setStatus(SpanStatusCode.Error, 'Database query failed: $e');
+    rethrow;
   } finally {
     span.end();
   }
@@ -181,9 +227,7 @@ Future<void> initializeWithCode() async {
       OtlpHttpSpanExporter(
         OtlpHttpExporterConfig(
           endpoint: 'https://otlp-gateway-prod-us-central-0.grafana.net/otlp',
-          headers: {
-            'authorization': 'Basic $base64Credentials',
-          },
+          headers: {'authorization': 'Basic $base64Credentials'},
           compression: true,
         ),
       ),

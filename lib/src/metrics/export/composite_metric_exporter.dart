@@ -29,6 +29,9 @@ class CompositeMetricExporter implements MetricExporter {
   /// @param exporters The list of exporters to which operations will be delegated
   CompositeMetricExporter(this._exporters);
 
+  /// The delegate exporters this composite forwards to.
+  List<MetricExporter> get exporters => List.unmodifiable(_exporters);
+
   /// Exports metrics to all delegate exporters.
   ///
   /// This method forwards the export operation to each delegate exporter.
@@ -42,12 +45,13 @@ class CompositeMetricExporter implements MetricExporter {
     if (_shutdown) {
       if (OTelLog.isLogExport()) {
         OTelLog.logExport(
-            'CompositeMetricExporter: Cannot export after shutdown');
+          'CompositeMetricExporter: Cannot export after shutdown',
+        );
       }
       return false;
     }
 
-    bool success = true;
+    var success = true;
     for (final exporter in _exporters) {
       try {
         final result = await exporter.export(data);
@@ -55,7 +59,8 @@ class CompositeMetricExporter implements MetricExporter {
       } catch (e) {
         if (OTelLog.isLogExport()) {
           OTelLog.logExport(
-              'CompositeMetricExporter: Export failed for $exporter: $e');
+            'CompositeMetricExporter: Export failed for $exporter: $e',
+          );
         }
         success = false;
       }
@@ -77,7 +82,7 @@ class CompositeMetricExporter implements MetricExporter {
       return false;
     }
 
-    bool success = true;
+    var success = true;
     for (final exporter in _exporters) {
       try {
         final result = await exporter.forceFlush();
@@ -103,7 +108,7 @@ class CompositeMetricExporter implements MetricExporter {
     }
 
     _shutdown = true;
-    bool success = true;
+    var success = true;
     for (final exporter in _exporters) {
       try {
         final result = await exporter.shutdown();

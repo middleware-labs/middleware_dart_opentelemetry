@@ -46,18 +46,15 @@ void main() {
       exporter.clear();
 
       // Arrange
-      String result = '';
+      var result = '';
       final span = tracer.startSpan('test-with-span');
 
       // Act
-      tracer.withSpan(
-        span,
-        () {
-          final currentSpan = tracer.currentSpan;
-          result = currentSpan?.name ?? 'No active span';
-          return result;
-        },
-      );
+      tracer.withSpan(span, () {
+        final currentSpan = tracer.currentSpan;
+        result = currentSpan?.name ?? 'No active span';
+        return result;
+      });
 
       // End the span explicitly since withSpan doesn't end it
       span.end();
@@ -75,20 +72,17 @@ void main() {
       exporter.clear();
 
       // Arrange
-      String result = '';
+      var result = '';
       final span = tracer.startSpan('test-with-span-async');
 
       // Act
-      await tracer.withSpanAsync(
-        span,
-        () async {
-          // Simulate async work
-          await Future<void>.delayed(const Duration(milliseconds: 10));
-          final currentSpan = tracer.currentSpan;
-          result = currentSpan?.name ?? 'No active span';
-          return result;
-        },
-      );
+      await tracer.withSpanAsync(span, () async {
+        // Simulate async work
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        final currentSpan = tracer.currentSpan;
+        result = currentSpan?.name ?? 'No active span';
+        return result;
+      });
 
       // End the span explicitly since withSpanAsync doesn't end it
       span.end();
@@ -102,79 +96,82 @@ void main() {
       expect(exporter.hasSpanWithName('test-with-span-async'), isTrue);
     });
 
-    test('recordSpan creates and automatically ends a span', () async {
+    test('OTel.withSpan activates the span and exports on end', () async {
       exporter.clear();
 
-      // Act
-      final result = tracer.recordSpan(
-        name: 'auto-record-span',
-        fn: () {
-          return 'success';
-        },
-      );
+      final span = tracer.startSpan('with-span-active');
+      try {
+        OTel.withSpan(span, () {
+          // Span should be active here.
+          expect(tracer.currentSpan, equals(span));
+        });
+      } finally {
+        span.end();
+      }
 
-      // Force export
       await processor.forceFlush();
 
-      // Assert
-      expect(result, equals('success'));
       expect(exporter.spans, hasLength(1));
-      expect(exporter.hasSpanWithName('auto-record-span'), isTrue);
-
-      final exportedSpan = exporter.findSpanByName('auto-record-span')!;
-      expect(exportedSpan.isEnded, isTrue);
+      expect(exporter.hasSpanWithName('with-span-active'), isTrue);
+      expect(exporter.findSpanByName('with-span-active')!.isEnded, isTrue);
     });
 
-    test('recordSpanAsync creates and automatically ends an async span',
-        () async {
-      exporter.clear();
+    test(
+      'OTel.withSpanAsync activates the span across awaits and exports on end',
+      () async {
+        exporter.clear();
 
-      // Act
-      final result = await tracer.recordSpanAsync(
-        name: 'async-record-span',
-        fn: () async {
-          await Future<void>.delayed(const Duration(milliseconds: 10));
-          return 'async success';
-        },
-      );
+        final span = tracer.startSpan('with-span-async-active');
+        try {
+          final result = await OTel.withSpanAsync(span, () async {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+            expect(tracer.currentSpan, equals(span));
+            return 'async success';
+          });
+          expect(result, equals('async success'));
+        } finally {
+          span.end();
+        }
 
-      // Force export
-      await processor.forceFlush();
+        await processor.forceFlush();
 
-      // Assert
-      expect(result, equals('async success'));
-      expect(exporter.spans, hasLength(1));
-      expect(exporter.hasSpanWithName('async-record-span'), isTrue);
+        expect(exporter.spans, hasLength(1));
+        expect(exporter.hasSpanWithName('with-span-async-active'), isTrue);
+        expect(
+          exporter.findSpanByName('with-span-async-active')!.isEnded,
+          isTrue,
+        );
+      },
+    );
 
-      final exportedSpan = exporter.findSpanByName('async-record-span')!;
-      expect(exportedSpan.isEnded, isTrue);
-    });
+    test(
+      'OTel.withSpan captures exceptions and sets error status',
+      () async {
+        exporter.clear();
 
-    test('recordSpan captures exceptions and sets error status', () async {
-      exporter.clear();
-
-      // Act & Assert
-      expect(
-        () => tracer.recordSpan(
-          name: 'error-span',
-          fn: () {
-            throw Exception('Test error in recordSpan');
+        final span = tracer.startSpan('error-span');
+        expect(
+          () {
+            try {
+              OTel.withSpan(span, () {
+                throw Exception('Test error in withSpan');
+              });
+            } finally {
+              span.end();
+            }
           },
-        ),
-        throwsException,
-      );
+          throwsException,
+        );
 
-      // Force export
-      await processor.forceFlush();
+        await processor.forceFlush();
 
-      // Verify span was created and exported even though exception was thrown
-      expect(exporter.spans, hasLength(1));
-      expect(exporter.hasSpanWithName('error-span'), isTrue);
-
-      final exportedSpan = exporter.findSpanByName('error-span')!;
-      expect(exportedSpan.isEnded, isTrue);
-      expect(exportedSpan.status, equals(SpanStatusCode.Error));
-    });
+        expect(exporter.spans, hasLength(1));
+        expect(exporter.hasSpanWithName('error-span'), isTrue);
+        final exportedSpan = exporter.findSpanByName('error-span')!;
+        expect(exportedSpan.isEnded, isTrue);
+        expect(exportedSpan.status, equals(SpanStatusCode.Error));
+      },
+    );
 
     test('startActiveSpan activates span during execution', () async {
       exporter.clear();
@@ -202,35 +199,37 @@ void main() {
       expect(exportedSpan.isEnded, isTrue);
     });
 
-    test('startActiveSpanAsync activates span during async execution',
-        () async {
-      exporter.clear();
+    test(
+      'startActiveSpanAsync activates span during async execution',
+      () async {
+        exporter.clear();
 
-      // Act
-      final result = await tracer.startActiveSpanAsync(
-        name: 'active-async-span',
-        fn: (span) async {
-          // Simulate async work
-          await Future<void>.delayed(const Duration(milliseconds: 10));
+        // Act
+        final result = await tracer.startActiveSpanAsync(
+          name: 'active-async-span',
+          fn: (span) async {
+            // Simulate async work
+            await Future<void>.delayed(const Duration(milliseconds: 10));
 
-          // Get current span to verify it's the same
-          final currentSpan = tracer.currentSpan;
-          expect(currentSpan, equals(span));
-          return 'active async span success';
-        },
-      );
+            // Get current span to verify it's the same
+            final currentSpan = tracer.currentSpan;
+            expect(currentSpan, equals(span));
+            return 'active async span success';
+          },
+        );
 
-      // Force export
-      await processor.forceFlush();
+        // Force export
+        await processor.forceFlush();
 
-      // Assert
-      expect(result, equals('active async span success'));
-      expect(exporter.spans, hasLength(1));
-      expect(exporter.hasSpanWithName('active-async-span'), isTrue);
+        // Assert
+        expect(result, equals('active async span success'));
+        expect(exporter.spans, hasLength(1));
+        expect(exporter.hasSpanWithName('active-async-span'), isTrue);
 
-      final exportedSpan = exporter.findSpanByName('active-async-span')!;
-      expect(exportedSpan.isEnded, isTrue);
-    });
+        final exportedSpan = exporter.findSpanByName('active-async-span')!;
+        expect(exportedSpan.isEnded, isTrue);
+      },
+    );
 
     test('withSpan maintains span context during execution', () async {
       exporter.clear();
@@ -238,15 +237,14 @@ void main() {
       final parentSpan = tracer.startSpan('parent-span');
       final parentContext = OTel.context().withSpan(parentSpan);
 
-      tracer.withSpan(
-        parentSpan,
-        () {
-          // Start a child span within the parent context
-          final childSpan =
-              tracer.startSpan('child-span', context: parentContext);
-          childSpan.end();
-        },
-      );
+      tracer.withSpan(parentSpan, () {
+        // Start a child span within the parent context
+        final childSpan = tracer.startSpan(
+          'child-span',
+          context: parentContext,
+        );
+        childSpan.end();
+      });
 
       parentSpan.end();
 
@@ -261,10 +259,14 @@ void main() {
       final parentExported = exporter.findSpanByName('parent-span')!;
       final childExported = exporter.findSpanByName('child-span')!;
 
-      expect(childExported.parentSpanContext!.spanId,
-          equals(parentExported.spanContext.spanId));
-      expect(childExported.spanContext.traceId,
-          equals(parentExported.spanContext.traceId));
+      expect(
+        childExported.parentSpanContext!.spanId,
+        equals(parentExported.spanContext.spanId),
+      );
+      expect(
+        childExported.spanContext.traceId,
+        equals(parentExported.spanContext.traceId),
+      );
     });
   });
 }

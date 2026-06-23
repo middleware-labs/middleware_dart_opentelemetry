@@ -90,7 +90,9 @@ void main() {
       // No metrics should be present (since reader is shutdown)
       final metrics = memoryExporter.exportedMetrics;
       expect(
-          metrics.where((m) => m.name == 'shutdown_counter').isEmpty, isTrue);
+        metrics.where((m) => m.name == 'shutdown_counter').isEmpty,
+        isTrue,
+      );
     });
   });
 }

@@ -60,7 +60,9 @@ void main() {
 
       final exportedSpan = exporter.findSpanByName('direct-test-span')!;
       expect(
-          exportedSpan.attributes.getString('test.key'), equals('test.value'));
+        exportedSpan.attributes.getString('test.key'),
+        equals('test.value'),
+      );
       expect(exportedSpan.attributes.getInt('test.number'), equals(42));
       expect(exportedSpan.isEnded, isTrue);
     });
@@ -71,7 +73,7 @@ void main() {
       final tracer = tracerProvider.getTracer('test-tracer');
 
       // Create multiple spans
-      for (int i = 0; i < 5; i++) {
+      for (var i = 0; i < 5; i++) {
         final span = tracer.startSpan('span-$i');
         span.setIntAttribute('index', i);
         span.end();
@@ -84,7 +86,7 @@ void main() {
       expect(exporter.spans, hasLength(5));
 
       // Verify each span
-      for (int i = 0; i < 5; i++) {
+      for (var i = 0; i < 5; i++) {
         expect(exporter.hasSpanWithName('span-$i'), isTrue);
         final span = exporter.findSpanByName('span-$i')!;
         expect(span.attributes.getInt('index'), equals(i));

@@ -4,6 +4,8 @@ import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/span.dart';
 import 'package:middleware_dart_opentelemetry/src/trace/span_processor.dart';
 
+import '../span.dart';
+import '../span_processor.dart';
 import 'span_exporter.dart';
 
 /// A simple SpanProcessor that exports spans synchronously when they end.
@@ -22,7 +24,8 @@ class SimpleSpanProcessor implements SpanProcessor {
   Future<void> onStart(Span span, Context? parentContext) async {
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'SimpleSpanProcessor: onStart called for span ${span.spanContext.spanId}, traceId: ${span.spanContext.traceId}');
+        'SimpleSpanProcessor: onStart called for span ${span.spanContext.spanId}, traceId: ${span.spanContext.traceId}',
+      );
     }
   }
 
@@ -30,12 +33,14 @@ class SimpleSpanProcessor implements SpanProcessor {
   Future<void> onEnd(Span span) async {
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'SimpleSpanProcessor: onEnd called for span ${span.name} with ID ${span.spanContext.spanId}');
+        'SimpleSpanProcessor: onEnd called for span ${span.name} with ID ${span.spanContext.spanId}',
+      );
     }
     if (_isShutdown) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'SimpleSpanProcessor: Skipping export - processor is shutdown');
+          'SimpleSpanProcessor: Skipping export - processor is shutdown',
+        );
       }
       print('SimpleSpanProcessor: Skipping export - processor is shutdown');
       return;
@@ -45,14 +50,16 @@ class SimpleSpanProcessor implements SpanProcessor {
     if (span.endTime == null) {
       if (OTelLog.isWarn()) {
         OTelLog.warn(
-            'SimpleSpanProcessor: Span ${span.name} with ID ${span.spanContext.spanId} has no end time, which suggests it may not be properly ended');
+          'SimpleSpanProcessor: Span ${span.name} with ID ${span.spanContext.spanId} has no end time, which suggests it may not be properly ended',
+        );
       }
       // Continue with export anyway
     }
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'SimpleSpanProcessor: Exporting span ${span.spanContext.spanId} with name ${span.name}');
+        'SimpleSpanProcessor: Exporting span ${span.spanContext.spanId} with name ${span.name}',
+      );
     }
 
     try {
@@ -62,41 +69,47 @@ class SimpleSpanProcessor implements SpanProcessor {
         OTelLog.debug('SimpleSpanProcessor: Created list of spans to export');
       }
 
-      final Future<void> pendingExport = _spanExporter.export(spanToExport);
+      final pendingExport = _spanExporter.export(spanToExport);
       _pendingExports.add(pendingExport);
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'SimpleSpanProcessor: Added export to pending exports list');
+          'SimpleSpanProcessor: Added export to pending exports list',
+        );
       }
 
       // Directly await the export for better reliability in tests
       try {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'SimpleSpanProcessor: Awaiting export completion for span ${span.name}');
+            'SimpleSpanProcessor: Awaiting export completion for span ${span.name}',
+          );
         }
         await pendingExport;
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'SimpleSpanProcessor: Successfully exported span ${span.name} with ID ${span.spanContext.spanId}');
+            'SimpleSpanProcessor: Successfully exported span ${span.name} with ID ${span.spanContext.spanId}',
+          );
         }
       } catch (e, stackTrace) {
         if (OTelLog.isError()) {
           OTelLog.error(
-              'SimpleSpanProcessor: Export error while processing span ${span.spanContext.spanId}: $e');
+            'SimpleSpanProcessor: Export error while processing span ${span.spanContext.spanId}: $e',
+          );
           OTelLog.error('Stack trace: $stackTrace');
         }
       } finally {
         _pendingExports.remove(pendingExport);
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'SimpleSpanProcessor: Removed export from pending list');
+            'SimpleSpanProcessor: Removed export from pending list',
+          );
         }
       }
     } catch (e, stackTrace) {
       if (OTelLog.isError()) {
         OTelLog.error(
-            'SimpleSpanProcessor: Failed to start export for span ${span.spanContext.spanId}: $e');
+          'SimpleSpanProcessor: Failed to start export for span ${span.spanContext.spanId}: $e',
+        );
         OTelLog.error('Stack trace: $stackTrace');
       }
     }
@@ -108,7 +121,8 @@ class SimpleSpanProcessor implements SpanProcessor {
     // since it only processes spans when they end
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'SimpleSpanProcessor: Name updated for span ${span.spanContext.spanId} to $newName');
+        'SimpleSpanProcessor: Name updated for span ${span.spanContext.spanId} to $newName',
+      );
     }
   }
 
@@ -123,7 +137,8 @@ class SimpleSpanProcessor implements SpanProcessor {
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'SimpleSpanProcessor: Shutting down - waiting for ${_pendingExports.length} pending exports');
+        'SimpleSpanProcessor: Shutting down - waiting for ${_pendingExports.length} pending exports',
+      );
     }
     _isShutdown = true;
 
@@ -131,7 +146,8 @@ class SimpleSpanProcessor implements SpanProcessor {
       if (_pendingExports.isNotEmpty) {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'SimpleSpanProcessor: Waiting for ${_pendingExports.length} pending exports to complete');
+            'SimpleSpanProcessor: Waiting for ${_pendingExports.length} pending exports to complete',
+          );
         }
         try {
           await Future.wait(_pendingExports);
@@ -141,7 +157,8 @@ class SimpleSpanProcessor implements SpanProcessor {
         } catch (e) {
           if (OTelLog.isError()) {
             OTelLog.error(
-                'SimpleSpanProcessor: Error waiting for pending exports: $e');
+              'SimpleSpanProcessor: Error waiting for pending exports: $e',
+            );
           }
         }
       }
@@ -157,7 +174,8 @@ class SimpleSpanProcessor implements SpanProcessor {
       } catch (e) {
         if (OTelLog.isError()) {
           OTelLog.error(
-              'SimpleSpanProcessor: Error shutting down exporter: $e');
+            'SimpleSpanProcessor: Error shutting down exporter: $e',
+          );
         }
       }
 
@@ -177,14 +195,16 @@ class SimpleSpanProcessor implements SpanProcessor {
     if (_isShutdown) {
       if (OTelLog.isDebug()) {
         OTelLog.debug(
-            'SimpleSpanProcessor: Cannot force flush - processor is shut down');
+          'SimpleSpanProcessor: Cannot force flush - processor is shut down',
+        );
       }
       return;
     }
 
     if (OTelLog.isDebug()) {
       OTelLog.debug(
-          'SimpleSpanProcessor: Force flushing - waiting for ${_pendingExports.length} pending exports');
+        'SimpleSpanProcessor: Force flushing - waiting for ${_pendingExports.length} pending exports',
+      );
     }
 
     try {
@@ -197,7 +217,8 @@ class SimpleSpanProcessor implements SpanProcessor {
       } else {
         if (OTelLog.isDebug()) {
           OTelLog.debug(
-              'SimpleSpanProcessor: Waiting for ${_pendingExports.length} pending exports');
+            'SimpleSpanProcessor: Waiting for ${_pendingExports.length} pending exports',
+          );
         }
         await Future.wait(_pendingExports);
         if (OTelLog.isDebug()) {
