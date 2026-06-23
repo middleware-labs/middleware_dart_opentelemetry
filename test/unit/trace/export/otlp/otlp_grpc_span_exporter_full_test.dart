@@ -3,8 +3,8 @@
 
 import 'dart:async';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
-import 'package:dartastic_opentelemetry/proto/collector/trace/v1/trace_service.pbgrpc.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/proto/collector/trace/v1/trace_service.pbgrpc.dart';
 import 'package:grpc/grpc.dart';
 import 'package:test/test.dart';
 

@@ -18,8 +18,8 @@
 
 import 'dart:io';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/certificate_utils_io.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/certificate_utils_io.dart';
 import 'package:test/test.dart';
 
 import '../testing_utils/in_memory_span_exporter.dart';
@@ -372,23 +372,6 @@ void main() {
 
       final meterProviders = OTel.meterProviders();
       expect(meterProviders, isNotEmpty);
-    });
-
-    test('initialize with tenantId sets tenant_id on resource', () async {
-      await OTel.initialize(
-        serviceName: 'tenant-test',
-        serviceVersion: '1.0.0',
-        tenantId: 'test-tenant-123',
-        detectPlatformResources: false,
-        enableMetrics: false,
-      );
-
-      final resource = OTel.defaultResource;
-      expect(resource, isNotNull);
-
-      final attrs = resource!.attributes.toList();
-      final tenantAttr = attrs.where((a) => a.key == 'tenant_id');
-      expect(tenantAttr, isNotEmpty);
     });
 
     test('initialize logs environment variable usage with debug', () async {

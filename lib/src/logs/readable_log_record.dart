@@ -3,7 +3,8 @@
 
 import 'package:fixnum/fixnum.dart';
 
-import '../../dartastic_opentelemetry.dart';
+import '../../middleware_dart_opentelemetry.dart';
+
 
 /// A read-only view of a log record.
 ///

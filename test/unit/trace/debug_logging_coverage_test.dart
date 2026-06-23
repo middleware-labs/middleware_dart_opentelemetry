@@ -7,7 +7,7 @@
 // guard lines in span.dart, tracer.dart, tracer_provider.dart, and
 // simple_span_processor.dart that are otherwise uncovered when tests run at
 // the default (info) log level.
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 import '../../testing_utils/in_memory_span_exporter.dart';

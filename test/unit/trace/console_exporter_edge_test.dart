@@ -6,7 +6,7 @@
 //
 // Covers: events with attributes, links with attributes, status description,
 // not-ended spans, root spans, child spans, forceFlush, and shutdown.
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 void main() {

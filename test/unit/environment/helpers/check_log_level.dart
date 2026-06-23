@@ -4,7 +4,7 @@
 // Helper script: prints the log level after OTelEnv.initializeLogging().
 // Run via subprocess with OTEL_LOG_LEVEL env var set.
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() {
   // Start from a clean state

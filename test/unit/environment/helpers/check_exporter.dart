@@ -8,7 +8,7 @@
 
 import 'dart:io';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() {
   final signal = Platform.environment['CHECK_SIGNAL'] ?? 'traces';

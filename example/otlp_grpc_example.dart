@@ -33,7 +33,7 @@ void main() async {
       // convention name for an attribute:
       // https://opentelemetry.io/docs/specs/semconv/general/attributes/
       resourceAttributes: {
-        DeploymentResource.deploymentEnvironmentName.key:
+        'env':
             'dev', //https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/
       }.toAttributes());
 

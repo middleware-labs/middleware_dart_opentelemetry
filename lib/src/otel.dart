@@ -3,9 +3,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:meta/meta.dart';
-import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import '../middleware_dart_opentelemetry.dart';
 
 /// Main entry point for the OpenTelemetry SDK.
 ///

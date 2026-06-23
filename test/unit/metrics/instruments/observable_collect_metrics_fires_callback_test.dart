@@ -9,7 +9,7 @@
 // got an empty series. These tests pin the post-fix contract: one call
 // to collectMetrics() == one callback fire, no manual collect() needed.
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 void main() {

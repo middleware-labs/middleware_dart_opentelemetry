@@ -1,5 +1,4 @@
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() {
   print('=== Initial State ===');

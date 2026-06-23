@@ -7,7 +7,7 @@
 
 import 'dart:convert';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() async {
   // Suppress all logging so only our JSON goes to stdout.

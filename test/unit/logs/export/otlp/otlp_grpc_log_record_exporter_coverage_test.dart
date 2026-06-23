@@ -4,8 +4,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
-import 'package:dartastic_opentelemetry/proto/collector/logs/v1/logs_service.pbgrpc.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/proto/collector/logs/v1/logs_service.pbgrpc.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
 import 'package:test/test.dart';

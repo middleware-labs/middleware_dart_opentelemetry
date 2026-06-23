@@ -10,7 +10,7 @@
 //     to TracerProvider, and Tracer.startSpan / Span.end source their
 //     timestamps from it.
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 /// A test TimeProvider that returns a fixed instant. Lets us verify span

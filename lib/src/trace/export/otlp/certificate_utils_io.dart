@@ -4,7 +4,7 @@
 
 import 'dart:io';
 
-import '../../../../dartastic_opentelemetry.dart';
+import '../../../../middleware_dart_opentelemetry.dart';
 
 /// Utility class for dealing with certificates for TLS connections.
 ///

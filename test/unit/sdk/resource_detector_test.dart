@@ -2,9 +2,7 @@
 
 import 'dart:io' as io;
 
-import 'package:middleware_dart_opentelemetry/src/otel.dart';
-import 'package:middleware_dart_opentelemetry/src/resource/resource.dart';
-import 'package:middleware_dart_opentelemetry/src/resource/resource_detector.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 /// A custom detector that returns a resource with the given attributes.

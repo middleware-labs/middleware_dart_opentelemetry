@@ -68,13 +68,6 @@ class MetricsConfiguration {
       interval: const Duration(seconds: 15),
     );
 
-    // Get meter provider
-    final meterProvider = OTel.meterProvider();
-
-    // Set resource if provided
-    if (resource != null) {
-      meterProvider.resource = resource;
-    }
     // Add the metric reader
     meterProvider.addMetricReader(metricReader);
     return meterProvider;

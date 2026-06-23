@@ -4,7 +4,7 @@
 // scenarios — readers can call them in their own `main()`.
 // ignore_for_file: unreachable_from_main
 
-import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:middleware_dart_opentelemetry/src/otel.dart';
 
 /// Example-only baggage keys for things not in the OTel semantic

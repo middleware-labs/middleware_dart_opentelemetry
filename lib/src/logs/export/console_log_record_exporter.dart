@@ -1,7 +1,8 @@
 // Licensed under the Apache License, Version 2.0
 // Copyright 2025, Michael Bushe, All rights reserved.
 
-import '../../../dartastic_opentelemetry.dart';
+
+import '../../../middleware_dart_opentelemetry.dart';
 
 /// A LogRecordExporter that outputs log records to the console.
 ///

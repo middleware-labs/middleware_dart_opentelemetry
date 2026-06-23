@@ -4,7 +4,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 /// Tests targeting every uncovered line in otlp_http_metriccreateExporter.dart.

@@ -3,7 +3,7 @@
 
 // Tests for CompositeExporter to verify it correctly delegates
 // export, forceFlush, and shutdown to all contained exporters.
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 import '../../testing_utils/in_memory_span_exporter.dart';

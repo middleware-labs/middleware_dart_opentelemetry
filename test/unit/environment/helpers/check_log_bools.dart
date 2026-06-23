@@ -8,7 +8,7 @@
 
 import 'dart:convert';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 void main() {
   // Start from a clean state

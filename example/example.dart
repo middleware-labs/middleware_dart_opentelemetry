@@ -10,7 +10,7 @@
 /// - Properly shut down the SDK
 library;
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 /// Define your own typed enum for application-specific attribute keys that
 /// aren't covered by the OTel semantic conventions. This keeps attribute

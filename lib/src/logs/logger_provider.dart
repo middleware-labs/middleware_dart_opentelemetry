@@ -3,7 +3,7 @@
 
 library;
 
-import '../../dartastic_opentelemetry.dart';
+import '../../middleware_dart_opentelemetry.dart';
 
 part 'logger_provider_create.dart';
 

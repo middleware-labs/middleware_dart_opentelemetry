@@ -13,8 +13,8 @@
 //   - trace/export/otlp/certificate_utils_io.dart (10 uncovered lines)
 import 'dart:io';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
-import 'package:dartastic_opentelemetry/src/trace/export/otlp/certificate_utils_io.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/certificate_utils_io.dart';
 import 'package:test/test.dart';
 
 import '../testing_utils/memory_metric_exporter.dart';

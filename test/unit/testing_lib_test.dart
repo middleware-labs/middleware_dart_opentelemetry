@@ -8,8 +8,8 @@
 // the OTel-Dart ecosystem rely on this harness shape, so a change
 // here has to be deliberate.
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
-import 'package:dartastic_opentelemetry/testing.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/testing.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -40,7 +40,7 @@ library;
 
 import 'dart:async';
 
-import 'dartastic_opentelemetry.dart';
+import 'middleware_dart_opentelemetry.dart';
 
 /// Span exporter that buffers spans in memory for inspection.
 ///

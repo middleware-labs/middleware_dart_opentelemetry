@@ -5,7 +5,7 @@ library;
 
 import 'dart:io';
 
-import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/certificate_utils.dart';
+import 'package:middleware_dart_opentelemetry/src/trace/export/otlp/certificate_utils_io.dart';
 import 'package:test/test.dart';
 
 /// Unit tests for CertificateUtils — VM-only because `createSecurityContext`

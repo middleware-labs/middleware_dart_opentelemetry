@@ -4,7 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 import 'package:test/test.dart';
 
 /// Runs a Dart script in a subprocess with specific environment variables set.

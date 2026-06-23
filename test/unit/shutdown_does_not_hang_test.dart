@@ -138,7 +138,7 @@ void main() {
         final elapsed = await _runUntilExit(
           exitDeadline: const Duration(seconds: 30),
           reproSource: '''
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 Future<void> main() async {
   await OTel.initialize(
@@ -172,7 +172,7 @@ Future<void> main() async {
         final elapsed = await _runUntilExit(
           exitDeadline: const Duration(seconds: 30),
           reproSource: '''
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
+import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
 
 Future<void> main() async {
   await OTel.initialize(

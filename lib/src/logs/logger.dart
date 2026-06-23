@@ -5,7 +5,7 @@ library;
 
 import 'package:fixnum/fixnum.dart';
 
-import '../../dartastic_opentelemetry.dart';
+import '../../middleware_dart_opentelemetry.dart';
 
 part 'logger_create.dart';
 
