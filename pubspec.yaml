@@ -1,6 +1,6 @@
 name: middleware_dart_opentelemetry
 description: Middleware.io's OpenTelemetry SDK for Dart
-version: 1.0.5
+version: 1.0.6
 publisher: middleware.io
 repository: https://github.com/middleware-labs/middleware_dart_opentelemetry.git
 homepage: https://middleware.io
