@@ -16,7 +16,7 @@
 ///   - Request body size
 ///   - Response body size
 ///
-/// Spans automatically include W3C Trace Context propagation.
+/// Requests automatically carry W3C Trace Context and B3 headers.
 ///
 ///
 /// ---
@@ -82,7 +82,9 @@
 /// ---
 /// ## 📦 Spans & Attributes
 ///
-/// Each request span contains attributes following the
+/// Spans are named `{METHOD} {host}{path}` (e.g. `GET api.example.com/v1/users`),
+/// the same as the browser SDK's fetch/XHR spans. Each request span contains
+/// attributes following the
 /// [OpenTelemetry HTTP Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/http/):
 ///
 /// **Request attributes:**
@@ -93,7 +95,7 @@
 /// - `url.query`
 /// - `server.address`
 /// - `server.port`
-/// - `xhr` event type
+/// - `event.type` (`xhr`)
 /// - Optional: request headers
 /// - Optional: body size
 ///
@@ -122,20 +124,23 @@
 /// ---
 /// ## 🧩 Context Propagation
 ///
-/// The library automatically injects W3C trace headers:
+/// By default the library injects both W3C and B3 trace headers:
 ///
-/// - `traceparent`
-/// - `tracestate`
-/// - `baggage`
+/// - `traceparent` (plus `tracestate` / `baggage` when present)
+/// - `b3`
+/// - `x-b3-traceid`, `x-b3-spanid`, `x-b3-sampled`
 ///
-/// Using:
+/// Pick one format with [HttpInstrumentationConfig.tracePropagationFormat]:
 ///
 /// ```dart
-/// W3CTraceContextPropagator()
-/// W3CBaggagePropagator()
+/// final client = http.Client().instrument(
+///   config: HttpInstrumentationConfig(
+///     tracePropagationFormat: TracePropagationFormat.w3c, // or .b3, .all
+///   ),
+/// );
 /// ```
 ///
-/// So any backend that understands OpenTelemetry will correctly link traces.
+/// So a backend on either OpenTelemetry or Zipkin/B3 joins the app's trace.
 ///
 ///
 /// ---
@@ -208,7 +213,10 @@ class _HttpSemantics {
   static const String urlQuery = 'url.query';
   static const String serverAddress = 'server.address';
   static const String serverPort = 'server.port';
-  static const String eventType = 'xhr';
+  // The attribute KEY. 1.0.6 changed this to 'xhr', so spans carried `xhr=xhr`
+  // and no `event.type` at all, which is what the backend classifies network
+  // requests by. The value 'xhr' is set where the attributes are built.
+  static const String eventType = 'event.type';
 
   // Response attributes
   static const String httpResponseStatusCode = 'http.response.status_code';
@@ -216,6 +224,47 @@ class _HttpSemantics {
 
   // Error attributes
   static const String errorType = 'error.type';
+}
+
+/// Trace-context header formats injected into instrumented requests.
+enum TracePropagationFormat {
+  /// W3C `traceparent` (and `tracestate` / `baggage` when present) only.
+  w3c,
+
+  /// B3 single (`b3`) and multi (`x-b3-*`) headers only.
+  b3,
+
+  /// W3C plus both B3 encodings. The default, as in the browser and React
+  /// Native SDKs, so backends on either format join the trace.
+  all,
+}
+
+/// The propagator that writes [format]'s headers.
+TextMapPropagator<Map<String, String>, String> _propagatorFor(
+  TracePropagationFormat format,
+) =>
+    CompositePropagator<Map<String, String>, String>([
+      if (format != TracePropagationFormat.b3) ...[
+        W3CTraceContextPropagator(),
+        W3CBaggagePropagator(),
+      ],
+      if (format != TracePropagationFormat.w3c) ...[
+        B3Propagator(),
+        B3Propagator(injectEncoding: B3InjectEncoding.multi),
+      ],
+    ]);
+
+/// Span name `{METHOD} {host}{path}`, as the browser SDK names fetch/XHR
+/// spans. The scheme, query and fragment are left out: span names must be low
+/// cardinality, and a query string can carry tokens.
+String _httpSpanName(String method, Uri url) {
+  final verb = method.isEmpty ? 'HTTP' : method.toUpperCase();
+  // Uri drops a scheme's default port, so this is the browser's `URL.host`.
+  final host = url.hasPort ? '${url.host}:${url.port}' : url.host;
+  if (host.isEmpty) return verb;
+  // `URL.pathname` is never empty for an absolute URL; it is at least '/'.
+  final path = url.path.isEmpty ? '/' : url.path;
+  return '$verb $host$path';
 }
 
 /// Configuration for HTTP instrumentation
@@ -244,6 +293,9 @@ class HttpInstrumentationConfig {
   /// Custom attributes to add to all HTTP spans
   final Map<String, Object> Function(Uri url)? customAttributes;
 
+  /// Trace-context headers injected into each request.
+  final TracePropagationFormat tracePropagationFormat;
+
   /// Creates a new [HttpInstrumentationConfig].
   const HttpInstrumentationConfig({
     this.captureRequestHeaders = false,
@@ -258,6 +310,7 @@ class HttpInstrumentationConfig {
     this.maxUrlLength = 2048,
     this.shouldInstrument,
     this.customAttributes,
+    this.tracePropagationFormat = TracePropagationFormat.all,
   });
 }
 
@@ -278,6 +331,7 @@ class OTelHttpClient extends http.BaseClient {
   final Tracer _tracer;
   final HttpInstrumentationConfig _config;
   final Meter _meter;
+  final TextMapPropagator<Map<String, String>, String> _propagator;
 
   late final APICounter<int> _requestCounter;
   late final APIHistogram<double> _requestDuration;
@@ -301,7 +355,8 @@ class OTelHttpClient extends http.BaseClient {
     HttpInstrumentationConfig config = const HttpInstrumentationConfig(),
   })  : _tracer = tracer ?? OTel.tracer(),
         _meter = meter ?? OTel.meter('http.client'),
-        _config = config {
+        _config = config,
+        _propagator = _propagatorFor(config.tracePropagationFormat) {
     // Initialize metrics
     _requestCounter = _meter.createCounter<int>(
       name: 'http.client.request.count',
@@ -337,27 +392,21 @@ class OTelHttpClient extends http.BaseClient {
     }
 
     final startTime = DateTime.now();
-    final spanName = 'HTTP ${request.method} ${request.url}';
 
     // Build attributes
     final attributes = _buildRequestAttributes(request);
 
     // Start span
     final span = _tracer.startSpan(
-      spanName,
+      _httpSpanName(request.method, request.url),
       kind: SpanKind.client,
       attributes: attributes,
     );
 
     try {
       // Inject trace context into request headers
-      final propagator = CompositePropagator<Map<String, String>, String>([
-        W3CTraceContextPropagator(),
-        W3CBaggagePropagator(),
-      ]);
       final ctx = Context.current.withSpan(span);
-
-      propagator.inject(
+      _propagator.inject(
           ctx, request.headers, _HttpHeaderSetter(request.headers));
 
       // Send request
@@ -365,12 +414,18 @@ class OTelHttpClient extends http.BaseClient {
       final duration = DateTime.now().difference(startTime);
 
       // Record response attributes
-      _recordResponse(span, response, duration, attributes);
+      final responseAttributes =
+          _recordResponse(span, response, duration, attributes);
 
       // Record metrics
-      _recordMetrics(request, response, duration, attributes);
+      _recordMetrics(request, response, duration, responseAttributes);
 
-      span.setStatus(SpanStatusCode.Ok);
+      // Only a successful response is OK. Setting OK unconditionally used to
+      // overwrite the Error that _recordResponse sets for 4xx/5xx, because an
+      // OK status always wins, so failed requests were exported as OK.
+      if (response.statusCode < 400) {
+        span.setStatus(SpanStatusCode.Ok);
+      }
       span.end();
 
       return response;
@@ -381,12 +436,16 @@ class OTelHttpClient extends http.BaseClient {
       span.recordException(error, stackTrace: stackTrace);
       span.setStatus(SpanStatusCode.Error, error.toString());
 
-      // Record error attributes
-      attributes.copyWithStringAttribute(
-          _HttpSemantics.errorType, error.runtimeType.toString());
+      // Record error attributes. Attributes is immutable: the copy has to be
+      // put on the span and kept, not discarded.
+      final errorAttributes = <String, Object>{
+        _HttpSemantics.errorType: error.runtimeType.toString(),
+      }.toAttributes();
+      span.addAttributes(errorAttributes);
 
       // Record error metrics
-      _recordMetrics(request, null, duration, attributes);
+      _recordMetrics(request, null, duration,
+          attributes.copyWithAttributes(errorAttributes));
 
       span.end();
       rethrow;
@@ -437,34 +496,35 @@ class OTelHttpClient extends http.BaseClient {
     return attrs.toAttributes();
   }
 
-  void _recordResponse(
+  /// Puts the response attributes on [span] and returns [attributes] with them
+  /// added, for the metrics.
+  ///
+  /// [Attributes] is immutable, so each `copyWith*` returns a new object. This
+  /// used to call them and drop the result, which meant the status code, body
+  /// size and response headers never reached the span or the metrics.
+  Attributes _recordResponse(
     Span span,
     http.StreamedResponse response,
     Duration duration,
     Attributes attributes,
   ) {
-    // Add status code
-    attributes.copyWithIntAttribute(
-      _HttpSemantics.httpResponseStatusCode,
-      response.statusCode,
-    );
+    final responseAttrs = <String, Object>{
+      _HttpSemantics.httpResponseStatusCode: response.statusCode,
+    };
 
     // Add response body size
     if (_config.captureResponseBodySize && response.contentLength != null) {
-      attributes.copyWithIntAttribute(
-        _HttpSemantics.httpResponseBodySize,
-        response.contentLength!,
-      );
+      responseAttrs[_HttpSemantics.httpResponseBodySize] =
+          response.contentLength!;
     }
 
     // Add response headers
     if (_config.captureResponseHeaders) {
-      final headerAttrs = <String, Object>{};
-      _addHeaders(headerAttrs, 'http.response.header', response.headers);
-      for (final entry in headerAttrs.entries) {
-        attributes.copyWithStringAttribute(entry.key, entry.value.toString());
-      }
+      _addHeaders(responseAttrs, 'http.response.header', response.headers);
     }
+
+    final added = responseAttrs.toAttributes();
+    span.addAttributes(added);
 
     // Set error status for 4xx and 5xx
     if (response.statusCode >= 400) {
@@ -473,6 +533,8 @@ class OTelHttpClient extends http.BaseClient {
         'HTTP ${response.statusCode}',
       );
     }
+
+    return attributes.copyWithAttributes(added);
   }
 
   void _recordMetrics(
@@ -524,22 +586,12 @@ class OTelHttpClient extends http.BaseClient {
   }
 }
 
-class _DioHeaderSetter implements TextMapSetter<String> {
-  final Map<String, dynamic> _headers;
-
-  _DioHeaderSetter(this._headers);
-
-  @override
-  void set(String key, String value) {
-    _headers[key] = value;
-  }
-}
-
 /// Dio interceptor for automatic instrumentation
 class OTelDioInterceptor extends Interceptor {
   final Tracer _tracer;
   final Meter _meter;
   final HttpInstrumentationConfig _config;
+  final TextMapPropagator<Map<String, String>, String> _propagator;
 
   late final APICounter<int> _requestCounter;
   late final APIHistogram<double> _requestDuration;
@@ -561,7 +613,8 @@ class OTelDioInterceptor extends Interceptor {
     HttpInstrumentationConfig config = const HttpInstrumentationConfig(),
   })  : _tracer = tracer ?? OTel.tracer(),
         _meter = meter ?? OTel.meter('http.client.dio'),
-        _config = config {
+        _config = config,
+        _propagator = _propagatorFor(config.tracePropagationFormat) {
     // Initialize metrics
     _requestCounter = _meter.createCounter<int>(
       name: 'http.client.request.count',
@@ -600,9 +653,8 @@ class OTelDioInterceptor extends Interceptor {
     final attributes = _buildDioRequestAttributes(options);
 
     // Start span
-    final spanName = 'HTTP ${options.method} ${options.uri}';
     final span = _tracer.startSpan(
-      spanName,
+      _httpSpanName(options.method, options.uri),
       kind: SpanKind.client,
       attributes: attributes,
     );
@@ -612,14 +664,14 @@ class OTelDioInterceptor extends Interceptor {
     options.extra['_otel_start_time'] = DateTime.now();
     options.extra['_otel_attributes'] = attributes;
 
+    // The W3C propagators carry a Map<String, String>. Dio's headers are a
+    // Map<String, dynamic>, and passing them straight in fails the runtime
+    // type check, which threw on every request and failed it with
+    // DioException [unknown]. Inject into a typed carrier, then copy across.
     final ctx = Context.current.withSpan(span);
-    final propagator = CompositePropagator<Map<String, dynamic>, String>([
-      W3CTraceContextPropagator(),
-      W3CBaggagePropagator(),
-    ]);
-    final setter = _DioHeaderSetter(options.headers);
-
-    propagator.inject(ctx, options.headers, setter);
+    final carrier = <String, String>{};
+    _propagator.inject(ctx, carrier, _HttpHeaderSetter(carrier));
+    options.headers.addAll(carrier);
 
     handler.next(options);
   }
@@ -636,23 +688,25 @@ class OTelDioInterceptor extends Interceptor {
     if (span != null && startTime != null && attributes != null) {
       final duration = DateTime.now().difference(startTime);
 
-      // Add response attributes
-      attributes.copyWithIntAttribute(
-        _HttpSemantics.httpResponseStatusCode,
-        response.statusCode ?? 0,
-      );
+      // Add response attributes. Attributes is immutable: the result has to be
+      // put on the span and kept, not discarded as it used to be.
+      final responseAttrs = <String, Object>{
+        _HttpSemantics.httpResponseStatusCode: response.statusCode ?? 0,
+      };
 
       if (_config.captureResponseBodySize && response.data != null) {
         final bodySize = _estimateBodySize(response.data);
         if (bodySize > 0) {
-          attributes.copyWithIntAttribute(
-              _HttpSemantics.httpResponseBodySize, bodySize);
+          responseAttrs[_HttpSemantics.httpResponseBodySize] = bodySize;
         }
       }
 
+      final added = responseAttrs.toAttributes();
+      span.addAttributes(added);
+
       // Record metrics
-      _recordDioMetrics(
-          response.requestOptions, response, duration, attributes);
+      _recordDioMetrics(response.requestOptions, response, duration,
+          attributes.copyWithAttributes(added));
 
       // Set status
       if (response.statusCode != null && response.statusCode! >= 400) {
@@ -681,20 +735,22 @@ class OTelDioInterceptor extends Interceptor {
       span.recordException(err, stackTrace: err.stackTrace);
       span.setStatus(SpanStatusCode.Error, err.message ?? 'HTTP Error');
 
-      // Add error type
-      attributes.copyWithStringAttribute(
-          _HttpSemantics.errorType, err.type.toString());
-
-      // Add response status if available
+      // Add error type and, if a response arrived, its status. Attributes is
+      // immutable: the result has to be put on the span and kept.
+      final errorAttrs = <String, Object>{
+        _HttpSemantics.errorType: err.type.toString(),
+      };
       if (err.response?.statusCode != null) {
-        attributes.copyWithIntAttribute(
-          _HttpSemantics.httpResponseStatusCode,
-          err.response!.statusCode!,
-        );
+        errorAttrs[_HttpSemantics.httpResponseStatusCode] =
+            err.response!.statusCode!;
       }
 
+      final added = errorAttrs.toAttributes();
+      span.addAttributes(added);
+
       // Record metrics
-      _recordDioMetrics(err.requestOptions, err.response, duration, attributes);
+      _recordDioMetrics(err.requestOptions, err.response, duration,
+          attributes.copyWithAttributes(added));
 
       span.end();
     }

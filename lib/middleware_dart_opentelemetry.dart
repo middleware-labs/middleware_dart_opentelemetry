@@ -92,4 +92,5 @@ export 'src/trace/span.dart';
 export 'src/trace/span_processor.dart';
 export 'src/trace/tracer.dart';
 export 'src/trace/tracer_provider.dart';
+export 'src/trace/b3_propagator.dart';
 export 'src/trace/w3c_trace_context_propagator.dart';
