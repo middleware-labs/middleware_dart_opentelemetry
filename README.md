@@ -1122,27 +1122,28 @@ This allows you to:
 
 Create spans for each HTTP request
 
-Propagate W3C Trace Context headers (traceparent, tracestate)
+Propagate W3C Trace Context (`traceparent`, `tracestate`) and B3 (`b3`, `x-b3-*`) headers
 
 Capture HTTP metadata (method, URL, status, timings, errors)
 
 Automatically connect client spans to downstream services
 
-This works for any Dart backend, CLI, or Flutter-based network implementation using dart:io.
+This works for any Dart backend, CLI, or Flutter app (Android, iOS, desktop) using `package:http` or `dio`.
 
 ### ✨ Features of OTelHttpClient
 
-- Wraps any existing HttpClient
-- Automatically injects OTel propagation headers using your TextMapSetter
+- Wraps any existing `http.Client` (`OTelDioInterceptor` does the same for Dio)
+- Names spans `{METHOD} {host}{path}`, e.g. `GET api.example.com/data`, like the Middleware browser SDK
 - Creates spans around each request
 - Records exceptions, errors, and status codes
-- Provides full W3C spec-compliant context propagation
+- Injects W3C and both B3 encodings by default; choose one with
+  `HttpInstrumentationConfig(tracePropagationFormat: TracePropagationFormat.w3c)` (or `.b3`)
 
 ### Usage
 #### 1. Import the package
    ```dart
    import 'package:middleware_dart_opentelemetry/middleware_dart_opentelemetry.dart';
-   import 'dart:io';
+   import 'package:http/http.dart' as http;
    ```
 #### 2. Initialize OpenTelemetry
    ```dart
@@ -1152,16 +1153,15 @@ This works for any Dart backend, CLI, or Flutter-based network implementation us
     );
    ```
 
-#### 3. Wrap the Dart HttpClient with OTelHttpClient
+#### 3. Wrap your http.Client with OTelHttpClient
   ```dart
-  final client = OTelHttpClient(HttpClient());
+  final client = OTelHttpClient(http.Client()); // or http.Client().instrument()
   ```
 
 #### 4. Make instrumented HTTP requests
   ```dart
-  final request = await client.getUrl(Uri.parse('https://api.example.com/data'));
-  final response = await request.close();
-  
+  final response = await client.get(Uri.parse('https://api.example.com/data'));
+
   print('Status: ${response.statusCode}');
   ```
 
@@ -1174,14 +1174,13 @@ That's all you need — spans are now generated automatically and exported via y
     await OTel.initialize(serviceName: 'http-client-demo');
     
     final tracer = OTel.tracer();
-    final client = OTelHttpClient(HttpClient());
-    
+    final client = OTelHttpClient(http.Client());
+
     final span = tracer.startSpan('demo-operation');
-    
-    await Context.withSpan(span, () async {
-    final request = await client.getUrl(Uri.parse('https://middleware.io'));
-    final response = await request.close();
-    print('Status: ${response.statusCode}');
+
+    await Context.current.withSpan(span).run(() async {
+      final response = await client.get(Uri.parse('https://middleware.io'));
+      print('Status: ${response.statusCode}');
     });
     span.end();
   }
